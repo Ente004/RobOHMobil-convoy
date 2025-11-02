@@ -102,6 +102,7 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
+ // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
 
   /* USER CODE END 2 */
 
