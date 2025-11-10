@@ -440,7 +440,7 @@ static int Read_IR_Sensor(void)
 	IR_Rechts = !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
 	IR_Links  = !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1);
 
-	if(IR_Rechts) {									//TEST LED für IR-Test
+	if(IR_Rechts && IR_Links) {									//TEST LED für IR-Test
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, 1);
 	} else {
 		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, 0);
@@ -481,4 +481,5 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
 
