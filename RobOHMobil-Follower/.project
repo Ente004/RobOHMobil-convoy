@@ -29,4 +29,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>STSW-IMG029</name>
+			<type>2</type>
+			<location>C:/Users/Anwender/Documents/Hochschule/Projekt - RobOHMobil Convoy/Github_RobOHMobil/RobOHMobil-convoy2/RobOHMobil-Follower/Drivers/STSW-IMG029</location>
+		</link>
+	</linkedResources>
 </projectDescription>
