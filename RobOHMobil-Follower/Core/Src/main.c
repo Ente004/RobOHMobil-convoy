@@ -18,10 +18,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#inclue "vl53lx_platform.c"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "VL53LX_api.h"
 
 /* USER CODE END Includes */
 
@@ -114,7 +114,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  Read_IR_Sensor();		//TEST
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
