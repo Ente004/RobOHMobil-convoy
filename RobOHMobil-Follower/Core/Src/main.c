@@ -51,6 +51,15 @@ TIM_HandleTypeDef htim8;
 /* USER CODE BEGIN PV */
 int IR_Sensor_R;						// Rechter IR sieht IR-Beacon
 int IR_Sensor_L;						// Linker IR sieht IR-Beacon
+
+
+// TOF Sensor Devices used in Driver Functions
+VL53LX_Dev_t TOF_R;
+VL53LX_DEV Dev_TOF_R = &TOF_R;
+VL53LX_Dev_t TOF_L;
+VL53LX_DEV Dev_TOF_L = &TOF_L;
+
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,6 +71,8 @@ static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
+static void VL53LX_Init_R(void);
+static void VL53LX_Init_L(void);
 static int Read_IR_Sensor(void);
 /* USER CODE END PFP */
 
@@ -104,8 +115,11 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM1_Init();
   MX_TIM4_Init();
+  VL53LX_Init_L();
+  VL53LX_Init_R();
   /* USER CODE BEGIN 2 */
  // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+
 
   /* USER CODE END 2 */
 
@@ -114,6 +128,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  Read_IR_Sensor();
 
     /* USER CODE BEGIN 3 */
   }
@@ -495,16 +510,59 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+static void VL53LX_Init_R(void) {
+
+
+	static VL53LX_CalibrationData_t *CalR;
+
+	Dev_TOF_R->i2c_slave_address = 0x52;
+
+	HAL_GPIO_WritePin(GPIOB, TOF_R_EN_Pin, 1);		//Enable XShut
+
+
+	VL53LX_WaitDeviceBooted(Dev_TOF_R);
+	VL53LX_DataInit(Dev_TOF_R);
+	VL53LX_PerformOffsetSimpleCalibration(Dev_TOF_R, 0);
+	VL53LX_GetCalibrationData(Dev_TOF_R, CalR);
+	VL53LX_SetCalibrationData(Dev_TOF_R, CalR);
+	VL53LX_SetDistanceMode(Dev_TOF_R, VL53LX_DISTANCEMODE_MEDIUM);
+
+	// New Adress for I2C
+	Dev_TOF_R->i2c_slave_address = 0x51;
+	VL53LX_SetDeviceAddress(Dev_TOF_R, Dev_TOF_R->i2c_slave_address);
+
+
+}
+static void VL53LX_Init_L(void) {
+
+
+	static VL53LX_CalibrationData_t *CalL;
+
+	Dev_TOF_L->i2c_slave_address = 0x52;
+
+	HAL_GPIO_WritePin(GPIOB, TOF_L_EN_Pin, 1);		//Enable XShut
+
+
+	VL53LX_WaitDeviceBooted(Dev_TOF_L);
+	VL53LX_DataInit(Dev_TOF_L);
+	VL53LX_PerformOffsetSimpleCalibration(Dev_TOF_L, 0);
+	VL53LX_GetCalibrationData(Dev_TOF_L, CalL);
+	VL53LX_SetCalibrationData(Dev_TOF_L, CalL);
+	VL53LX_SetDistanceMode(Dev_TOF_L, VL53LX_DISTANCEMODE_MEDIUM);
+
+}
+
+
 /* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/
 static int Read_IR_Sensor(void)
 {
-	IR_Sensor_R = !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9);
-	IR_Sensor_L  = !HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10);
+	IR_Sensor_R = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R);
+	IR_Sensor_L  = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L);
 
 	if(IR_Sensor_R && IR_Sensor_L) {									//TEST LED für IR-Test
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, 1);
+		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 1);
 	} else {
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, 0);
+		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 0);
 	}
 	
 	return (IR_Sensor_R && IR_Sensor_L);
