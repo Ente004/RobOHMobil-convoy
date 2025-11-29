@@ -9,7 +9,17 @@
  ******************************************************************************
  */
 
-
+/*
+ * 			Hinzufügen des Drivers: https://forum.digikey.com/t/adding-the-vl53l1x-driver-to-an-stm32cube-project/13276
+ *
+ * 			Tutorial folgen für richtigen sensor
+ *
+ * 			bei multiple Definitions fehler -> Doppelte Dateien aus Hinzugefügtem Drivers Ordner löschen
+ *
+ *
+ *
+ *
+ * */
 
 
 
@@ -21,9 +31,9 @@
 
 #include "vl53lx_platform.h"
 #include <vl53lx_platform_log.h>
+#include "main.h"
 
-
-
+extern I2C_HandleTypeDef hi2c1;
 
 
 #define trace_print(level, ...) \
@@ -65,7 +75,15 @@ VL53LX_Error VL53LX_WriteMulti(
 {
 	VL53LX_Error status = 255;
 	/* To be filled by customer according to the platform request. Return 0 if OK */
-	return status;
+	if(HAL_I2C_Mem_Write(&hi2c1, pdev->i2c_slave_address, index, I2C_MEMADD_SIZE_16BIT, pdata, count, 100) == HAL_OK){
+
+		return VL53LX_ERROR_NONE;
+
+	} else {
+
+		return status;
+
+	}
 }
 
 
@@ -77,7 +95,15 @@ VL53LX_Error VL53LX_ReadMulti(
 {
 	VL53LX_Error status = 255;
 	/* To be filled by customer according to the platform request. Return 0 if OK */
-	return status;
+	if(HAL_I2C_Mem_Read(&hi2c1, pdev->i2c_slave_address, index, I2C_MEMADD_SIZE_16BIT, pdata, count, 100) == HAL_OK){
+
+		return VL53LX_ERROR_NONE;
+
+	} else {
+
+		return status;
+
+	}
 }
 
 
@@ -207,9 +233,15 @@ VL53LX_Error VL53LX_WaitMs(
 	VL53LX_Dev_t *pdev,
 	int32_t       wait_ms)
 {
-	VL53LX_Error status = 255;
+	//VL53LX_Error status = 255;
 	/* To be filled by customer according to the platform request. Return 0 if OK */
-	return status;
+	HAL_Delay(wait_ms);
+
+	return VL53LX_ERROR_NONE;
+
+
+
+
 }
 
 

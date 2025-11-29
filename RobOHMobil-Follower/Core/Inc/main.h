@@ -61,12 +61,14 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define TOF_R_EN_Pin GPIO_PIN_2
 #define TOF_R_EN_GPIO_Port GPIOA
-#define TOF_L_Pin GPIO_PIN_3
-#define TOF_L_GPIO_Port GPIOA
+#define TOF_L_EXTI_3_Pin GPIO_PIN_3
+#define TOF_L_EXTI_3_GPIO_Port GPIOA
+#define TOF_L_EXTI_3_EXTI_IRQn EXTI3_IRQn
 #define TOF_L_EN_Pin GPIO_PIN_4
 #define TOF_L_EN_GPIO_Port GPIOA
-#define TOF_R_Pin GPIO_PIN_7
-#define TOF_R_GPIO_Port GPIOA
+#define TOF_R_EXTI7_Pin GPIO_PIN_7
+#define TOF_R_EXTI7_GPIO_Port GPIOA
+#define TOF_R_EXTI7_EXTI_IRQn EXTI9_5_IRQn
 #define IR_Blink_Pin GPIO_PIN_0
 #define IR_Blink_GPIO_Port GPIOB
 #define IR_Sensor_R_Pin GPIO_PIN_9
