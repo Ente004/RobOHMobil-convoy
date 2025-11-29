@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32g4xx_it.h"
+#include "VL53LX_api.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -57,7 +58,8 @@
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-
+extern VL53LX_DEV Dev_TOF_R;
+extern VL53LX_DEV Dev_TOF_L;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -204,9 +206,22 @@ void SysTick_Handler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
+	static VL53LX_MultiRangingData_t MultiData;
+	static VL53LX_MultiRangingData_t *pMultiRangingData;
+	pMultiRangingData = &MultiData;
+
+	VL53LX_GetMultiRangingData(Dev_TOF_L, pMultiRangingData);
+
+
+	int16_t Range_L = pMultiRangingData->RangeData[0].RangeMilliMeter;
+
+	Range_Data_Handler_L(Range_L);
+
+
+	VL53LX_ClearInterruptAndStartMeasurement(Dev_TOF_L);
 
   /* USER CODE END EXTI3_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
+	HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
   /* USER CODE BEGIN EXTI3_IRQn 1 */
 
   /* USER CODE END EXTI3_IRQn 1 */
@@ -218,9 +233,22 @@ void EXTI3_IRQHandler(void)
 void EXTI9_5_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI9_5_IRQn 0 */
+	static VL53LX_MultiRangingData_t MultiData;
+	static VL53LX_MultiRangingData_t *pMultiRangingData;
+	pMultiRangingData = &MultiData;
 
-  /* USER CODE END EXTI9_5_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
+	VL53LX_GetMultiRangingData(Dev_TOF_R, pMultiRangingData);
+
+
+	int16_t Range_R = pMultiRangingData->RangeData[0].RangeMilliMeter;
+
+	Range_Data_Handler_R(Range_R);
+
+
+	VL53LX_ClearInterruptAndStartMeasurement(Dev_TOF_R);
+
+  /*	 USER CODE END EXTI9_5_IRQn 0 */
+	HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
 
   /* USER CODE END EXTI9_5_IRQn 1 */

@@ -56,6 +56,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+void Range_Data_Handler_R(int16_t _Range_R);
+void Range_Data_Handler_L(int16_t _Range_L);
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

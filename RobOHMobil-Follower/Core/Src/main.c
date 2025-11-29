@@ -59,6 +59,11 @@ VL53LX_DEV Dev_TOF_R = &TOF_R;
 VL53LX_Dev_t TOF_L;
 VL53LX_DEV Dev_TOF_L = &TOF_L;
 
+int Range_R;
+int Range_Last_R;
+int Range_L;
+int Range_Last_L;
+
 
 /* USER CODE END PV */
 
@@ -123,12 +128,19 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  	  	  // Wenn Bereit TOF Sensore Meas Starten
+  	  	  VL53LX_StartMeasurement(Dev_TOF_R);
+	  	  VL53LX_StartMeasurement(Dev_TOF_L);
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
 	  Read_IR_Sensor();
+
+
+
+
 
     /* USER CODE BEGIN 3 */
   }
@@ -567,6 +579,15 @@ static int Read_IR_Sensor(void)
 	
 	return (IR_Sensor_R && IR_Sensor_L);
 }
+
+void Range_Data_Handler_R(int16_t _Range_R){
+
+}
+
+void Range_Data_Handler_L(int16_t _Range_L){
+
+}
+
 /* USER CODE END 4 */
 
 /**
