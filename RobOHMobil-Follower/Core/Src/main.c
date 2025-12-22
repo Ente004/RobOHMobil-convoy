@@ -54,7 +54,9 @@ int IR_Sensor_L;						// Linker IR sieht IR-Beacon
 
 // TOF Sensor Devices used in Driver Functions
 Dev_t TOF_R;
+VL53L4CD_ResultsData_t *p_result_R;
 Dev_t TOF_L;
+VL53L4CD_ResultsData_t *p_result_L;
 
 int Range_R;
 int Range_Last_R;
@@ -91,7 +93,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

@@ -206,19 +206,13 @@ void SysTick_Handler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-	static VL53LX_MultiRangingData_t MultiData;
-	static VL53LX_MultiRangingData_t *pMultiRangingData;
-	pMultiRangingData = &MultiData;
+	VL53L4CD_GetResult(TOF_L, p_result_L);
 
-	VL53LX_GetMultiRangingData(Dev_TOF_L, pMultiRangingData);
-
-
-	int16_t Range_L = pMultiRangingData->RangeData[0].RangeMilliMeter;
+	int16_t Range_L = p_result_L->distance_mm;
 
 	Range_Data_Handler_L(Range_L);
 
-
-	VL53LX_ClearInterruptAndStartMeasurement(Dev_TOF_L);
+	VL53L4CD_ClearInterrupt(TOF_L);
 
   /* USER CODE END EXTI3_IRQn 0 */
 	HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
@@ -233,19 +227,14 @@ void EXTI3_IRQHandler(void)
 void EXTI9_5_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI9_5_IRQn 0 */
-	static VL53LX_MultiRangingData_t MultiData;
-	static VL53LX_MultiRangingData_t *pMultiRangingData;
-	pMultiRangingData = &MultiData;
-
-	VL53LX_GetMultiRangingData(Dev_TOF_R, pMultiRangingData);
+	VL53L4CD_GetResult(TOF_R, p_result_R);
 
 
-	int16_t Range_R = pMultiRangingData->RangeData[0].RangeMilliMeter;
+	int16_t Range_R = p_result_R->distance_mm;
 
 	Range_Data_Handler_R(Range_R);
 
-
-	VL53LX_ClearInterruptAndStartMeasurement(Dev_TOF_R);
+	VL53L4CD_ClearInterrupt(TOF_L);
 
   /*	 USER CODE END EXTI9_5_IRQn 0 */
 	HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
