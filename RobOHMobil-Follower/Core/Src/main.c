@@ -52,12 +52,9 @@ TIM_HandleTypeDef htim8;
 int IR_Sensor_R;						// Rechter IR sieht IR-Beacon
 int IR_Sensor_L;						// Linker IR sieht IR-Beacon
 
-
 // TOF Sensor Devices used in Driver Functions
-VL53LX_Dev_t TOF_R;
-VL53LX_DEV Dev_TOF_R = &TOF_R;
-VL53LX_Dev_t TOF_L;
-VL53LX_DEV Dev_TOF_L = &TOF_L;
+Dev_t TOF_R;
+Dev_t TOF_L;
 
 int Range_R;
 int Range_Last_R;
@@ -120,17 +117,18 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM1_Init();
   MX_TIM4_Init();
-  VL53LX_Init_L();
-  VL53LX_Init_R();
+  VL53L4CD_Init_L();
+  VL53L4CD_Init_R();
   /* USER CODE BEGIN 2 */
  // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
 
 
   /* USER CODE END 2 */
 
-  	  	  // Wenn Bereit TOF Sensore Meas Starten
-  	  	  VL53LX_StartMeasurement(Dev_TOF_R);
-	  	  VL53LX_StartMeasurement(Dev_TOF_L);
+  // Wenn Bereit TOF Sensore Meas Starten
+  VL53L4CD_StartRanging(TOF_R);
+  VL53L4CD_StartRanging(TOF_L);
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -522,46 +520,26 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-static void VL53LX_Init_R(void) {
-
-
-	static VL53LX_CalibrationData_t *CalR;
-
-	Dev_TOF_R->i2c_slave_address = 0x52;
+static void VL53L4CD_Init_R(void) {
 
 	HAL_GPIO_WritePin(GPIOB, TOF_R_EN_Pin, 1);		//Enable XShut
 
+	HAL_Delay(10);									//Delay Time ans Datenblatt anpassen
 
-	VL53LX_WaitDeviceBooted(Dev_TOF_R);
-	VL53LX_DataInit(Dev_TOF_R);
-	VL53LX_PerformOffsetSimpleCalibration(Dev_TOF_R, 0);
-	VL53LX_GetCalibrationData(Dev_TOF_R, CalR);
-	VL53LX_SetCalibrationData(Dev_TOF_R, CalR);
-	VL53LX_SetDistanceMode(Dev_TOF_R, VL53LX_DISTANCEMODE_MEDIUM);
-
-	// New Adress for I2C
-	Dev_TOF_R->i2c_slave_address = 0x51;
-	VL53LX_SetDeviceAddress(Dev_TOF_R, Dev_TOF_R->i2c_slave_address);
-
-
+	Dev_t i2cAddr_default = 0x52;
+	TOF_R = 0x54;
+	VL53L4CD_SetICAddress(i2cAddr_default, TOF_R);
+	VL53L4CD_SensorInit(TOF_R);
 }
-static void VL53LX_Init_L(void) {
 
-
-	static VL53LX_CalibrationData_t *CalL;
-
-	Dev_TOF_L->i2c_slave_address = 0x52;
+static void VL53L4CD_Init_L(void) {
 
 	HAL_GPIO_WritePin(GPIOB, TOF_L_EN_Pin, 1);		//Enable XShut
 
+	HAL_Delay(10);									//Delay Time ans Datenblatt anpassen
 
-	VL53LX_WaitDeviceBooted(Dev_TOF_L);
-	VL53LX_DataInit(Dev_TOF_L);
-	VL53LX_PerformOffsetSimpleCalibration(Dev_TOF_L, 0);
-	VL53LX_GetCalibrationData(Dev_TOF_L, CalL);
-	VL53LX_SetCalibrationData(Dev_TOF_L, CalL);
-	VL53LX_SetDistanceMode(Dev_TOF_L, VL53LX_DISTANCEMODE_MEDIUM);
-
+	TOF_L = 0x52;
+	VL53L4CD_SensorInit(TOF_L);
 }
 
 
