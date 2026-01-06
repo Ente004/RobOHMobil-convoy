@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "VL53LX_api.h"
+#include "VL53L4CD_api.h"
 
 /* USER CODE END Includes */
 
@@ -53,10 +53,13 @@ int IR_Sensor_R;						// Rechter IR sieht IR-Beacon
 int IR_Sensor_L;						// Linker IR sieht IR-Beacon
 
 // TOF Sensor Devices used in Driver Functions
-Dev_t TOF_R;
+Dev_t TOF_R   = 0x54;   	// Neue Adresse für R
+Dev_t TOF_L = 0x56;  		// Neue Adresse für L
+
 VL53L4CD_ResultsData_t *p_result_R;
-Dev_t TOF_L;
 VL53L4CD_ResultsData_t *p_result_L;
+
+
 
 int Range_R;
 int Range_Last_R;
@@ -75,8 +78,8 @@ static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
-static void VL53LX_Init_R(void);
-static void VL53LX_Init_L(void);
+void VL53L4CD_I2C_Test(void);
+static void VL53L4CD_Init(void);
 static int Read_IR_Sensor(void);
 /* USER CODE END PFP */
 
@@ -118,24 +121,29 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM1_Init();
   MX_TIM4_Init();
-  VL53L4CD_Init_L();
-  VL53L4CD_Init_R();
+
+
+  VL53L4CD_Init();
+
   /* USER CODE BEGIN 2 */
  // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-
+//TBD
 
   /* USER CODE END 2 */
-
+  //VL53L4CD_I2C_Test();		//Nur Testfunktion für sensoren
   // Wenn Bereit TOF Sensore Meas Starten
+
+
   VL53L4CD_StartRanging(TOF_R);
-  VL53L4CD_StartRanging(TOF_L);
+
+  //VL53L4CD_StartRanging(TOF_L);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-	  Read_IR_Sensor();
+	 // Read_IR_Sensor();
 
 
 
@@ -521,27 +529,78 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-static void VL53L4CD_Init_R(void) {
+static void VL53L4CD_Init(void) {
 
-	HAL_GPIO_WritePin(GPIOB, TOF_R_EN_Pin, 1);		//Enable XShut
+	HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin | TOF_L_EN_Pin, GPIO_PIN_RESET);
+	HAL_Delay(10);
 
-	HAL_Delay(10);									//Delay Time ans Datenblatt anpassen
+	Dev_t default_addr = 0x52;   	// Default
 
-	Dev_t i2cAddr_default = 0x52;
-	TOF_R = 0x54;
-	VL53L4CD_SetICAddress(i2cAddr_default, TOF_R);
-	VL53L4CD_SensorInit(TOF_R);
+	// INIT TOF_R
+	HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_SET);
+	HAL_Delay(10);
+
+	if (VL53L4CD_SetI2CAddress(default_addr, TOF_R) != 0)
+	{
+		Error_Handler();
+	}
+	HAL_Delay(10);
+
+	if (VL53L4CD_SensorInit(TOF_R) != 0)
+    {
+        Error_Handler();
+    }
+
+/*	Erstmal nur ein Sensor
+	// INIT TOF_L
+	HAL_GPIO_WritePin(GPIOB, TOF_L_EN_Pin, GPIO_PIN_SET);
+	HAL_Delay(10);
+
+
+	if (VL53L4CD_SetI2CAddress(default_addr, TOF_L) != 0)
+    {
+        Error_Handler();
+    }
+	HAL_Delay(10);
+
+	if (VL53L4CD_SensorInit(TOF_L) != 0)
+    {
+        Error_Handler();
+    }
+*/
 }
 
-static void VL53L4CD_Init_L(void) {
 
-	HAL_GPIO_WritePin(GPIOB, TOF_L_EN_Pin, 1);		//Enable XShut
 
-	HAL_Delay(10);									//Delay Time ans Datenblatt anpassen
+void VL53L4CD_I2C_Test(void)
+{
+    uint8_t id = 0;
+    HAL_StatusTypeDef ret;
 
-	TOF_L = 0x52;
-	VL53L4CD_SensorInit(TOF_L);
+    // XSHUT sicher aktivieren
+    HAL_GPIO_WritePin(GPIOB, TOF_R_EN_Pin, GPIO_PIN_SET);
+    HAL_Delay(10);
+
+    // Lese Model-ID-Register (0x010F)
+    ret = HAL_I2C_Mem_Read(&hi2c1,
+                           0x52,          // Default-Adresse (0x29 << 1)
+                           0x010F,
+                           I2C_MEMADD_SIZE_16BIT,
+                           &id, 1, 100);
+
+    if (ret == HAL_OK)
+    {
+        // Sensor antwortet -> I2C OK
+        HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_SET); // z.B. LED an
+    }
+    else
+    {
+        // Kein ACK -> Hardware / Adresse / XSHUT / Pull-Ups
+        HAL_GPIO_WritePin(GPIOB, LD2_Pin, GPIO_PIN_RESET); // LED aus
+        Error_Handler(); // oder Breakpoint setzen
+    }
 }
+
 
 
 /* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/

@@ -14,7 +14,7 @@
 #include "platform.h"
 #include "main.h"
 
-extern I2C_HandleTypeDef hi2c1;
+extern I2C_HandleTypeDef 	hi2c1;
 
 uint8_t VL53L4CD_RdDWord(uint16_t dev, uint16_t RegisterAdress, uint32_t *value)
 {

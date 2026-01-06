@@ -692,8 +692,7 @@ VL53L4CD_Error VL53L4CD_StartTemperatureUpdate(
 					continue_loop = (uint8_t)0;
 					status = (uint8_t)VL53L4CD_ERROR_TIMEOUT;
 			}
-			//VL53L4CD_WaitMs(dev, 1);
-			WaitMs(dev, 1);
+			VL53L4CD_WaitMs(dev, 1);
 	}while(continue_loop == (uint8_t)1);
 
 	status |= VL53L4CD_ClearInterrupt(dev);
