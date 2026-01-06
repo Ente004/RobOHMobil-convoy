@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2025 STMicroelectronics.
+  * Copyright (c) 2026 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32g4xx_it.h"
-#include "VL53L4CD_api.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -58,8 +57,7 @@
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-extern VL53LX_DEV Dev_TOF_R;
-extern VL53LX_DEV Dev_TOF_L;
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -206,16 +204,9 @@ void SysTick_Handler(void)
 void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
-	VL53L4CD_GetResult(TOF_L, p_result_L);
-
-	int16_t Range_L = p_result_L->distance_mm;
-
-	Range_Data_Handler_L(Range_L);
-
-	VL53L4CD_ClearInterrupt(TOF_L);
 
   /* USER CODE END EXTI3_IRQn 0 */
-	HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
+  HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
   /* USER CODE BEGIN EXTI3_IRQn 1 */
 
   /* USER CODE END EXTI3_IRQn 1 */
@@ -227,17 +218,9 @@ void EXTI3_IRQHandler(void)
 void EXTI9_5_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI9_5_IRQn 0 */
-	VL53L4CD_GetResult(TOF_R, p_result_R);
 
-
-	int16_t Range_R = p_result_R->distance_mm;
-
-	Range_Data_Handler_R(Range_R);
-
-	VL53L4CD_ClearInterrupt(TOF_L);
-
-  /*	 USER CODE END EXTI9_5_IRQn 0 */
-	HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
+  /* USER CODE END EXTI9_5_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
 
   /* USER CODE END EXTI9_5_IRQn 1 */

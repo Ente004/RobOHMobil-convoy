@@ -6,7 +6,7 @@
   ******************************************************************************
   * @attention
   *
-  * Copyright (c) 2025 STMicroelectronics.
+  * Copyright (c) 2026 STMicroelectronics.
   * All rights reserved.
   *
   * This software is licensed under terms that can be found in the LICENSE file
@@ -21,7 +21,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "VL53LX_api.h"
 
 /* USER CODE END Includes */
 
@@ -49,20 +48,6 @@ TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim8;
 
 /* USER CODE BEGIN PV */
-int IR_Sensor_R;						// Rechter IR sieht IR-Beacon
-int IR_Sensor_L;						// Linker IR sieht IR-Beacon
-
-// TOF Sensor Devices used in Driver Functions
-Dev_t TOF_R;
-VL53L4CD_ResultsData_t *p_result_R;
-Dev_t TOF_L;
-VL53L4CD_ResultsData_t *p_result_L;
-
-int Range_R;
-int Range_Last_R;
-int Range_L;
-int Range_Last_L;
-
 
 /* USER CODE END PV */
 
@@ -75,9 +60,7 @@ static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
-static void VL53LX_Init_R(void);
-static void VL53LX_Init_L(void);
-static int Read_IR_Sensor(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -93,6 +76,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -118,28 +102,15 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM1_Init();
   MX_TIM4_Init();
-  VL53L4CD_Init_L();
-  VL53L4CD_Init_R();
   /* USER CODE BEGIN 2 */
- // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-
 
   /* USER CODE END 2 */
-
-  // Wenn Bereit TOF Sensore Meas Starten
-  VL53L4CD_StartRanging(TOF_R);
-  VL53L4CD_StartRanging(TOF_L);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-	  Read_IR_Sensor();
-
-
-
-
 
     /* USER CODE BEGIN 3 */
   }
@@ -520,52 +491,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-static void VL53L4CD_Init_R(void) {
-
-	HAL_GPIO_WritePin(GPIOB, TOF_R_EN_Pin, 1);		//Enable XShut
-
-	HAL_Delay(10);									//Delay Time ans Datenblatt anpassen
-
-	Dev_t i2cAddr_default = 0x52;
-	TOF_R = 0x54;
-	VL53L4CD_SetICAddress(i2cAddr_default, TOF_R);
-	VL53L4CD_SensorInit(TOF_R);
-}
-
-static void VL53L4CD_Init_L(void) {
-
-	HAL_GPIO_WritePin(GPIOB, TOF_L_EN_Pin, 1);		//Enable XShut
-
-	HAL_Delay(10);									//Delay Time ans Datenblatt anpassen
-
-	TOF_L = 0x52;
-	VL53L4CD_SensorInit(TOF_L);
-}
-
-
-/* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/
-static int Read_IR_Sensor(void)
-{
-	IR_Sensor_R = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R);
-	IR_Sensor_L  = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L);
-
-	if(IR_Sensor_R && IR_Sensor_L) {									//TEST LED für IR-Test
-		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 1);
-	} else {
-		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 0);
-	}
-	
-	return (IR_Sensor_R && IR_Sensor_L);
-}
-
-void Range_Data_Handler_R(int16_t _Range_R){
-
-}
-
-void Range_Data_Handler_L(int16_t _Range_L){
-
-}
 
 /* USER CODE END 4 */
 
