@@ -61,10 +61,10 @@ VL53L4CD_ResultsData_t *p_result_L;
 
 
 
-int Range_R;
-int Range_Last_R;
-int Range_L;
-int Range_Last_L;
+int16_t Range_R;
+int16_t Range_Last_R;
+int16_t Range_L;
+int16_t Range_Last_L;
 
 
 /* USER CODE END PV */
@@ -80,6 +80,7 @@ static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void VL53L4CD_I2C_Test(void);
 static void VL53L4CD_Init(void);
+static void Read_TOF(void);
 static int Read_IR_Sensor(void);
 /* USER CODE END PFP */
 
@@ -135,7 +136,6 @@ int main(void)
 
 
   VL53L4CD_StartRanging(TOF_R);
-
   //VL53L4CD_StartRanging(TOF_L);
 
   /* Infinite loop */
@@ -144,7 +144,7 @@ int main(void)
   {
     /* USER CODE END WHILE */
 	 // Read_IR_Sensor();
-
+	  Read_TOF();
 
 
 
@@ -540,14 +540,12 @@ static void VL53L4CD_Init(void) {
 	HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_SET);
 	HAL_Delay(10);
 
-	if (VL53L4CD_SetI2CAddress(default_addr, TOF_R) != 0)
-	{
+	if (VL53L4CD_SetI2CAddress(default_addr, TOF_R) != 0) {
 		Error_Handler();
 	}
 	HAL_Delay(10);
 
-	if (VL53L4CD_SensorInit(TOF_R) != 0)
-    {
+	if (VL53L4CD_SensorInit(TOF_R) != 0) {
         Error_Handler();
     }
 
@@ -616,6 +614,57 @@ static int Read_IR_Sensor(void)
 	}
 	
 	return (IR_Sensor_R && IR_Sensor_L);
+}
+
+static void Read_TOF(void) 
+{
+	uint8_t dataReady_R = 0;
+	uint8_t dataReady_L = 0;
+	
+	if (VL53L4CD_CheckForDataReady(TOF_R, &dataReady_R) != 0) {
+		Error_Handler();
+	}
+/*
+	if (VL53L4CD_CheckForDataReady(TOF_L, &dataReady_L) != 0) {
+		Error_Handler();
+	}
+*/
+	if (dataReady_R /*&& dataReady_L*/)
+	{
+		Range_Last_R = Range_R;
+		Range_Last_L = Range_L;
+		
+		if (VL53L4CD_GetResult(TOF_R, p_result_R) != 0) {
+			Error_Handler();
+		}
+		Range_R = p_result_R->distance_mm;
+		uint8_t status = p_result_R->range_status;
+/*
+		if (VL53L4CD_GetResult(TOF_L, p_result_L) != 0) {
+			Error_Handler();
+		}
+		Range_L = p_result_L->distance_mm;
+*/
+
+
+		if (VL53L4CD_ClearInterrupt(TOF_R) != 0) {
+			Error_Handler();
+		}
+/*
+		if (VL53L4CD_ClearInterrupt(TOF_L) != 0) {
+			Error_Handler();
+		}
+*/
+
+		if (VL53L4CD_StartRanging(TOF_R) != 0) {
+			Error_Handler();
+		}
+/*
+		if (VL53L4CD_StartRanging(TOF_L) != 0) {
+			Error_Handler();
+		}
+*/
+	}
 }
 
 void Range_Data_Handler_R(int16_t _Range_R){

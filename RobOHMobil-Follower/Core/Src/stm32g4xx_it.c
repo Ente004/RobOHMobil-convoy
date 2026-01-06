@@ -209,6 +209,7 @@ void EXTI3_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI3_IRQn 0 */
 
+	/*
 	VL53L4CD_GetResult(TOF_L, p_result_L);
 
 	int16_t Range_L = p_result_L->distance_mm;
@@ -216,7 +217,7 @@ void EXTI3_IRQHandler(void)
 	Range_Data_Handler_L(Range_L);
 
 	VL53L4CD_ClearInterrupt(TOF_L);
-
+*/
   /* USER CODE END EXTI3_IRQn 0 */
 	HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
   /* USER CODE BEGIN EXTI3_IRQn 1 */
@@ -230,7 +231,7 @@ void EXTI3_IRQHandler(void)
 void EXTI9_5_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI9_5_IRQn 0 */
-
+/*
 	VL53L4CD_GetResult(TOF_R, p_result_R);
 
 
@@ -242,15 +243,15 @@ void EXTI9_5_IRQHandler(void)
 	if (VL53L4CD_ClearInterrupt(TOF_R) != 0) {
 		Error_Handler();
 	}
-
+*/
   /*	 USER CODE END EXTI9_5_IRQn 0 */
 	HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
-
+/*
 	HAL_Delay(10);
 
 	VL53L4CD_StartRanging(TOF_R);
-
+*/
   /* USER CODE END EXTI9_5_IRQn 1 */
 }
 
