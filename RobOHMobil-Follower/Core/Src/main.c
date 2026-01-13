@@ -65,6 +65,7 @@ int16_t Range_R;
 int16_t Range_Last_R;
 int16_t Range_L;
 int16_t Range_Last_L;
+
 int16_t CalibrateOffset_R;
 int16_t CalibrateOffset_L;
 int16_t CalibratedOffset_R;
@@ -82,13 +83,22 @@ static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
+//INIT
 void Custom_GPIO_Init();
-void VL53L4CD_I2C_Test(void);
 static void VL53L4CD_Init(void);
 
-
+//READ
 static void Read_TOF(void);
 static int Read_IR_Sensor(void);
+
+//WRITE
+static void Follow_Drive(void);
+static void Turn_Right(void);
+static void Turn_Left(void);
+static void Stop(void);
+
+//TEST
+void VL53L4CD_I2C_Test(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -150,8 +160,18 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  Read_IR_Sensor();
+
 	  Read_TOF();
+	  if (Read_IR_Sensor()) {		// Wenn Beide erkennen, fahren
+		  Follow_Drive();
+	  } else if (IR_Sensor_L) {		// Links drehen
+		  Turn_Left();
+	  } else if (IR_Sensor_R) {		// Rechts drehen
+		  Turn_Right();
+	  } else {						// Rechts Drehen + Blau blinken -> Suchen
+		  Turn_Right();
+		  //BLINKEN
+	  }
 
 
 
@@ -534,7 +554,21 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
+
+
 /* USER CODE BEGIN 4 */
+
+//------------------------------------------------------------------------------------
+//		USER INIT
+//------------------------------------------------------------------------------------
+
+void Custom_GPIO_Init()
+{
+	GPIOA->MODER &= ~(0x03 << 4); 	//Reset GPIOA_MODE2
+	GPIOA->MODER |= (0x01 << 4); 	//Set GPIOA_MODE2
+	GPIOA->MODER &= ~(0x03 << 8); 	//Reset GPIOA_MODE4
+	GPIOA->MODER |= (0x01 << 8);	//Set GPIOA_MODE4 to output mode
+}
 
 static void VL53L4CD_Init(void) {
 
@@ -589,7 +623,9 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_StartRanging(TOF_L);
 }
 
-
+//------------------------------------------------------------------------------------
+//		USER TEST
+//------------------------------------------------------------------------------------
 
 void VL53L4CD_I2C_Test(void)
 {
@@ -624,7 +660,9 @@ void VL53L4CD_I2C_Test(void)
     }
 }
 
-
+//------------------------------------------------------------------------------------
+//		USER READ
+//------------------------------------------------------------------------------------
 
 /* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/
 static int Read_IR_Sensor(void)
@@ -700,21 +738,31 @@ static void Read_TOF(void)
 	HAL_Delay(5);
 }
 
-void Range_Data_Handler_R(int16_t _Range_R){
+//------------------------------------------------------------------------------------
+//		USER WRITE
+//------------------------------------------------------------------------------------
 
-}
-
-void Range_Data_Handler_L(int16_t _Range_L){
-
-}
-
-void Custom_GPIO_Init()
+static void Follow_Drive(void)
 {
-	GPIOA->MODER &= ~(0x03 << 4); 	//Reset GPIOA_MODE2
-	GPIOA->MODER |= (0x01 << 4); 	//Set GPIOA_MODE2
-	GPIOA->MODER &= ~(0x03 << 8); 	//Reset GPIOA_MODE4
-	GPIOA->MODER |= (0x01 << 8);	//Set GPIOA_MODE4 to output mode
+
 }
+
+static void Turn_Right(void)
+{
+
+}
+
+static void Turn_Left(void)
+{
+
+}
+
+static void Stop(void)
+{
+
+}
+
+
 /* USER CODE END 4 */
 
 /**
