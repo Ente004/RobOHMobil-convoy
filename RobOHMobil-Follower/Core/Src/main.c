@@ -54,7 +54,7 @@ int IR_Sensor_L;						// Linker IR sieht IR-Beacon
 
 // TOF Sensor Devices used in Driver Functions
 Dev_t TOF_R   = 0x54;   	// Neue Adresse für R
-Dev_t TOF_L = 0x56;  		// Neue Adresse für L
+Dev_t TOF_L   = 0x58;  		// Neue Adresse für L
 
 VL53L4CD_ResultsData_t result_R;
 VL53L4CD_ResultsData_t result_L;
@@ -65,6 +65,10 @@ int16_t Range_R;
 int16_t Range_Last_R;
 int16_t Range_L;
 int16_t Range_Last_L;
+int16_t CalibrateOffset_R;
+int16_t CalibrateOffset_L;
+int16_t CalibratedOffset_R;
+int16_t CalibratedOffset_L;
 
 
 /* USER CODE END PV */
@@ -78,8 +82,11 @@ static void MX_TIM3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
+void Custom_GPIO_Init();
 void VL53L4CD_I2C_Test(void);
 static void VL53L4CD_Init(void);
+
+
 static void Read_TOF(void);
 static int Read_IR_Sensor(void);
 /* USER CODE END PFP */
@@ -117,6 +124,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  //Custom_GPIO_Init(); //Falls MX_GPIO_Init() nicht funktioniert
   MX_TIM8_Init();
   MX_I2C1_Init();
   MX_TIM3_Init();
@@ -142,7 +150,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	 // Read_IR_Sensor();
+	  Read_IR_Sensor();
 	  Read_TOF();
 
 
@@ -215,7 +223,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x4052060F;
+  hi2c1.Init.Timing = 0x40B285C2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -548,26 +556,37 @@ static void VL53L4CD_Init(void) {
         Error_Handler();
     }
 
-/*	Erstmal nur ein Sensor
 	// INIT TOF_L
-	HAL_GPIO_WritePin(GPIOB, TOF_L_EN_Pin, GPIO_PIN_SET);
+	//HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_RESET);
+	HAL_Delay(10);
+	HAL_GPIO_WritePin(GPIOA, TOF_L_EN_Pin, GPIO_PIN_SET);
+
 	HAL_Delay(10);
 
 
-	if (VL53L4CD_SetI2CAddress(default_addr, TOF_L) != 0)
-    {
+	if (VL53L4CD_SetI2CAddress(default_addr, TOF_L) != 0) {
         Error_Handler();
     }
 	HAL_Delay(10);
 
-	if (VL53L4CD_SensorInit(TOF_L) != 0)
-    {
+	if (VL53L4CD_SensorInit(TOF_L) != 0) {
         Error_Handler();
     }
+
+	HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_SET);
+	HAL_Delay(10);
+	//Nur bei Anfangs Kalibrierung
+/*
+	VL53L4CD_CalibrateOffset(TOF_R, 100, &CalibrateOffset_R, 20);
+	VL53L4CD_CalibrateOffset(TOF_L, 100, &CalibrateOffset_L, 20);
+	VL53L4CD_GetOffset(TOF_R, &CalibratedOffset_R);
+	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	  VL53L4CD_StartRanging(TOF_R);
-	  //VL53L4CD_StartRanging(TOF_L);
+	VL53L4CD_SetOffset(TOF_R, -18);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_L, -16);
+	VL53L4CD_StartRanging(TOF_R);
+	VL53L4CD_StartRanging(TOF_L);
 }
 
 
@@ -578,12 +597,16 @@ void VL53L4CD_I2C_Test(void)
     HAL_StatusTypeDef ret;
 
     // XSHUT sicher aktivieren
-    HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOA, TOF_L_EN_Pin, GPIO_PIN_SET);
     HAL_Delay(10);
 
+    if (VL53L4CD_SetI2CAddress(0x52, TOF_L) != 0) {
+            Error_Handler();
+        }
     // Lese Model-ID-Register (0x010F)
     ret = HAL_I2C_Mem_Read(&hi2c1,
-                           0x52,          // Default-Adresse (0x29 << 1)
+    					   TOF_L,          // Default-Adresse (0x29 << 1)
                            0x010F,
                            I2C_MEMADD_SIZE_16BIT,
                            &id, 1, 100);
@@ -626,12 +649,12 @@ static void Read_TOF(void)
 	if (VL53L4CD_CheckForDataReady(TOF_R, &dataReady_R) != 0) {
 		Error_Handler();
 	}
-/*
+
 	if (VL53L4CD_CheckForDataReady(TOF_L, &dataReady_L) != 0) {
 		Error_Handler();
 	}
-*/
-	if (dataReady_R /*&& dataReady_L*/)
+
+	if (dataReady_R && dataReady_L)
 	{
 		Range_Last_R = Range_R;
 		Range_Last_L = Range_L;
@@ -644,11 +667,11 @@ static void Read_TOF(void)
 			Error_Handler();
 		}
 		Range_R = result_R.distance_mm;
-		uint8_t status = result_R.range_status;
+		//uint8_t statusR = result_R.range_status;
 
 
 
-/*
+
  	 	if (VL53L4CD_GetResult(TOF_L, &result_L) != 0) {
 			Error_Handler();
 		}
@@ -658,8 +681,8 @@ static void Read_TOF(void)
 		}
 
 		Range_L = result_L.distance_mm;
-		uint8_t status = result_L.range_status;
-*/
+		//uint8_t statusL = result_L.range_status;
+
 
 
 
@@ -667,11 +690,11 @@ static void Read_TOF(void)
 		if (VL53L4CD_StartRanging(TOF_R) != 0) {
 			Error_Handler();
 		}
-/*
+
 		if (VL53L4CD_StartRanging(TOF_L) != 0) {
 			Error_Handler();
 		}
-*/
+
 	}
 
 	HAL_Delay(5);
@@ -685,6 +708,13 @@ void Range_Data_Handler_L(int16_t _Range_L){
 
 }
 
+void Custom_GPIO_Init()
+{
+	GPIOA->MODER &= ~(0x03 << 4); 	//Reset GPIOA_MODE2
+	GPIOA->MODER |= (0x01 << 4); 	//Set GPIOA_MODE2
+	GPIOA->MODER &= ~(0x03 << 8); 	//Reset GPIOA_MODE4
+	GPIOA->MODER |= (0x01 << 8);	//Set GPIOA_MODE4 to output mode
+}
 /* USER CODE END 4 */
 
 /**
