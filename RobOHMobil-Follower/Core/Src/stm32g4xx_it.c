@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32g4xx_it.h"
-#include "VL53L4CD_api.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -58,10 +57,7 @@
 /* External variables --------------------------------------------------------*/
 
 /* USER CODE BEGIN EV */
-extern Dev_t TOF_R;
-extern VL53L4CD_ResultsData_t *p_result_R;
-extern Dev_t TOF_L;
-extern VL53L4CD_ResultsData_t *p_result_L;
+
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -219,7 +215,7 @@ void EXTI3_IRQHandler(void)
 	VL53L4CD_ClearInterrupt(TOF_L);
 */
   /* USER CODE END EXTI3_IRQn 0 */
-	HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
+  HAL_GPIO_EXTI_IRQHandler(TOF_L_EXTI_3_Pin);
   /* USER CODE BEGIN EXTI3_IRQn 1 */
 
   /* USER CODE END EXTI3_IRQn 1 */
@@ -244,8 +240,8 @@ void EXTI9_5_IRQHandler(void)
 		Error_Handler();
 	}
 */
-  /*	 USER CODE END EXTI9_5_IRQn 0 */
-	HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
+  /* USER CODE END EXTI9_5_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(TOF_R_EXTI7_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
 /*
 	HAL_Delay(10);

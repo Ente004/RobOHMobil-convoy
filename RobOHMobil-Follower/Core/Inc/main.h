@@ -74,6 +74,8 @@ void Range_Data_Handler_L(int16_t _Range_L);
 #define TOF_R_EXTI7_EXTI_IRQn EXTI9_5_IRQn
 #define IR_Blink_Pin GPIO_PIN_0
 #define IR_Blink_GPIO_Port GPIOB
+#define MT_ENB_Pin GPIO_PIN_8
+#define MT_ENB_GPIO_Port GPIOA
 #define IR_Sensor_R_Pin GPIO_PIN_9
 #define IR_Sensor_R_GPIO_Port GPIOA
 #define IR_Sensor_L_Pin GPIO_PIN_10
@@ -84,6 +86,8 @@ void Range_Data_Handler_L(int16_t _Range_L);
 #define RGB_Blau_GPIO_Port GPIOB
 #define RGB_Gelb_Pin GPIO_PIN_5
 #define RGB_Gelb_GPIO_Port GPIOB
+#define MT_ENA_Pin GPIO_PIN_6
+#define MT_ENA_GPIO_Port GPIOB
 #define LD2_Pin GPIO_PIN_8
 #define LD2_GPIO_Port GPIOB
 
