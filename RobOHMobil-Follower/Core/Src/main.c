@@ -774,7 +774,7 @@ static void Set_Speed_L(int speed)
 static void Set_Speed_R(int speed)
 {
 	if(speed >= 0 && speed <= 10000) {
-		TIM2->CCR1 = speed;
+		TIM2->CCR2 = speed;
 	} else {
 		Error_Handler();
 	}
