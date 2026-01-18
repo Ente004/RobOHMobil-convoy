@@ -90,10 +90,12 @@ static void Read_TOF(void);
 static int Read_IR_Sensor(void);
 
 //WRITE
-static void Follow_Drive(void);
-static void Turn_Right(void);
-static void Turn_Left(void);
-static void Stop(void);
+static void Drive_Follow(void);
+static void Drive_Turn_Right(void);
+static void Drive_Turn_Left(void);
+static void Drive_Stop(void);
+static void Set_Speed_L(int speed);
+static void Set_Speed_R(int speed);
 
 //TEST
 void VL53L4CD_I2C_Test(void);
@@ -139,13 +141,34 @@ int main(void)
   /* USER CODE BEGIN 2 */
  // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
 //TBD
-
+  VL53L4CD_Init();
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  Read_TOF();
+
+	  if (Read_IR_Sensor()) {		// Wenn Beide erkennen, fahren
+		  Drive_Follow();
+	  } else if (IR_Sensor_L) {		// Links drehen
+		  Drive_Turn_Left();
+	  } else if (IR_Sensor_R) {		// Rechts drehen
+		  Drive_Turn_Right();
+	  } else {						// Rechts Drehen + Blau blinken -> Suchen
+		  Drive_Turn_Right();
+		  //BLINKEN
+	  }
+
+
+
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -696,30 +719,65 @@ static void Read_TOF(void)
 //		USER WRITE
 //------------------------------------------------------------------------------------
 
-static void Follow_Drive(void)
+static void Drive_Follow(void)
 {
-
+	Drive_Stop();
 }
 
-static void Turn_Right(void)
+static void Drive_Turn_Right(void)
 {
 	HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_RESET);
 	HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_SET  );
 	HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_SET  );
 
-	// PWM => CCR zwischen 0 - 10000
+	Set_Speed_L(1000);		//10% Speed
+	Set_Speed_R(1000);
 
 }
 
-static void Turn_Left(void)
+static void Drive_Turn_Left(void)
 {
+	HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_SET  );
+	HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_SET  );
 
+	Set_Speed_L(1000);		//10% Speed
+	Set_Speed_R(1000);
 }
 
-static void Stop(void)
+static void Drive_Stop(void)
 {
+	HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_RESET);
 
+	HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_RESET);
+
+	Set_Speed_L(0);
+	Set_Speed_R(0);
+}
+
+
+// Speed 0 - 10000
+static void Set_Speed_L(int speed)
+{
+	if(speed >= 0 && speed <= 10000) {
+		TIM1->CCR1 = speed;
+	} else {
+		Error_Handler();
+	}
+}
+
+// Speed 0 - 10000
+static void Set_Speed_R(int speed)
+{
+	if(speed >= 0 && speed <= 10000) {
+		TIM2->CCR1 = speed;
+	} else {
+		Error_Handler();
+	}
 }
 
 
@@ -734,8 +792,10 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
+  Drive_Stop();
   while (1)
   {
+
   }
   /* USER CODE END Error_Handler_Debug */
 }
