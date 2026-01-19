@@ -64,6 +64,10 @@ int16_t Range_R;
 int16_t Range_Last_R;
 int16_t Range_L;
 int16_t Range_Last_L;
+int16_t Range_Reference = 75;
+int16_t R_Speed = 0;
+int16_t L_Speed = 0;
+
 
 int16_t CalibrateOffset_R;
 int16_t CalibrateOffset_L;
@@ -96,6 +100,9 @@ static void Drive_Turn_Left(void);
 static void Drive_Stop(void);
 static void Set_Speed_L(int speed);
 static void Set_Speed_R(int speed);
+
+//CALCULATE
+static int Check_Valid_Range(void);
 
 //TEST
 void VL53L4CD_I2C_Test(void);
@@ -154,7 +161,11 @@ int main(void)
 	  Read_TOF();
 
 	  if (Read_IR_Sensor()) {		// Wenn Beide erkennen, fahren
-		  Drive_Follow();
+
+		  while(Check_Valid_Range()) {
+		  	  Drive_Follow();
+		  }
+
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
 	  } else if (IR_Sensor_R) {		// Rechts drehen
@@ -721,40 +732,59 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
+
+	//Calculate Speed
+	if((Range_R + 5) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
+
+		if(Range_R <= Range_Last_R) {
+			R_Speed -= (Range_Reference - Range_R);
+		}
+
+	} else if((Range_R - 5) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
+
+		if(Range_R >= Range_Last_R) {
+			R_Speed += (Range_R - Range_Reference);
+		}
+
+	}
+
+	if((Range_L + 5) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
+
+		if(Range_L <= Range_Last_L) {
+			L_Speed -= (Range_Reference - Range_L);
+		}
+
+	} else if((Range_L - 5) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
+
+		if(Range_L >= Range_Last_L) {
+			L_Speed += (Range_L - Range_Reference);
+		}
+
+	}
+
+
+	Set_Speed_L(L_Speed*10);
+	Set_Speed_R(R_Speed*10);
+
+
+	//RAUS WENN FERTIG
 	Drive_Stop();
 }
 
 static void Drive_Turn_Right(void)
 {
-	HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_SET  );
-	HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_SET  );
-
 	Set_Speed_L(1000);		//10% Speed
-	Set_Speed_R(1000);
-
+	Set_Speed_R(-1000);
 }
 
 static void Drive_Turn_Left(void)
 {
-	HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_SET  );
-	HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_SET  );
-
-	Set_Speed_L(1000);		//10% Speed
+	Set_Speed_L(-1000);		//10% Speed
 	Set_Speed_R(1000);
 }
 
 static void Drive_Stop(void)
 {
-	HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_RESET);
-
-	HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_RESET);
-
 	Set_Speed_L(0);
 	Set_Speed_R(0);
 }
@@ -763,8 +793,27 @@ static void Drive_Stop(void)
 // Speed 0 - 10000
 static void Set_Speed_L(int speed)
 {
-	if(speed >= 0 && speed <= 10000) {
+	if(speed == 0) {
+
+		HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_RESET);
+
 		TIM1->CCR1 = speed;
+
+	} else if(speed <= 10000 && speed > 0) {
+
+		HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_SET  );
+
+		TIM1->CCR1 = speed;
+
+	} else if(speed >= -10000 && speed < 0) {
+
+		HAL_GPIO_WritePin(L_Forward_GPIO_Port , L_Forward_Pin , GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_SET  );
+
+		TIM1->CCR1 = -speed;
+
 	} else {
 		Error_Handler();
 	}
@@ -773,12 +822,53 @@ static void Set_Speed_L(int speed)
 // Speed 0 - 10000
 static void Set_Speed_R(int speed)
 {
-	if(speed >= 0 && speed <= 10000) {
-		TIM2->CCR2 = speed;
-	} else {
-		Error_Handler();
+	if(speed == 0) {
+
+			HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_RESET);
+
+			TIM2->CCR2 = speed;
+
+		} else if(speed <= 10000 && speed > 0) {
+
+			HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_SET  );
+
+			TIM2->CCR2 = speed;
+
+		} else if(speed >= -10000 && speed < 0) {
+
+			HAL_GPIO_WritePin(R_Forward_GPIO_Port , R_Forward_Pin , GPIO_PIN_RESET);
+			HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_SET  );
+
+			TIM2->CCR2 = -speed;
+
+		} else {
+			Error_Handler();
+		}
+}
+
+//------------------------------------------------------------------------------------
+//		USER CALCULATE
+//------------------------------------------------------------------------------------
+
+// Returns 1 when TOF-Ranges are valid ( >0; <1000)
+static int Check_Valid_Range(void)
+{
+	if(
+		Range_R <= 0   ||
+		Range_R > 1000 ||
+		Range_L <= 0   ||
+		Range_L > 1000
+	   )
+	{
+		return 0;
+	} else
+	{
+		return 1;
 	}
 }
+
 
 
 /* USER CODE END 4 */
