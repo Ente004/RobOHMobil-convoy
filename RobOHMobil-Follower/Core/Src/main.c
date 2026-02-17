@@ -773,14 +773,14 @@ static void Drive_Follow(void)
 
 static void Drive_Turn_Right(void)
 {
-	Set_Speed_L(1000);		//10% Speed
-	Set_Speed_R(-1000);
+	Set_Speed_L(6000);		//10% Speed
+	Set_Speed_R(-6000);
 }
 
 static void Drive_Turn_Left(void)
 {
-	Set_Speed_L(-1000);		//10% Speed
-	Set_Speed_R(1000);
+	Set_Speed_L(-6000);		//10% Speed
+	Set_Speed_R(6000);
 }
 
 static void Drive_Stop(void)
