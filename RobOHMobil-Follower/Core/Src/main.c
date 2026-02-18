@@ -159,11 +159,13 @@ int main(void)
   while (1)
   {
 	  Read_TOF();
-
+	  L_Speed = 0;
+	  R_Speed = 0;
 	  if (Read_IR_Sensor()) {		// Wenn Beide erkennen, fahren
 
 		  while(Check_Valid_Range()) {
-		  	  Drive_Follow();
+ 			  Read_TOF();
+ 		  	  Drive_Follow();
 		  }
 
 	  } else if (IR_Sensor_L) {		// Links drehen
@@ -655,8 +657,8 @@ void VL53L4CD_I2C_Test(void)
 /* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/
 static int Read_IR_Sensor(void)
 {
-	IR_Sensor_R = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R);
-	IR_Sensor_L  = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L);
+	IR_Sensor_R = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R_Pin);
+	IR_Sensor_L = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L_Pin);
 
 	if(IR_Sensor_R && IR_Sensor_L) {									//TEST LED für IR-Test
 		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 1);
@@ -748,6 +750,12 @@ static void Drive_Follow(void)
 
 	}
 
+	if(R_Speed > 4000) {
+		R_Speed = 4000;
+	} else if(R_Speed < -4000) {
+		R_Speed = -4000;
+	}
+
 	if((Range_L + 5) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
 
 		if(Range_L <= Range_Last_L) {
@@ -762,24 +770,37 @@ static void Drive_Follow(void)
 
 	}
 
+	if(L_Speed > 4000) {
+		L_Speed = 4000;
+	} else if(L_Speed < -4000) {
+		L_Speed = -4000;
+	}
 
-	Set_Speed_L(L_Speed*10);
-	Set_Speed_R(R_Speed*10);
+	if(R_Speed > 0) {
+		Set_Speed_R(R_Speed + 6000);				//Speed muss Effektiv mind PWM von 60% haben um genug Drehmoment zu haben damit das  Fahrzeug sich bewegt
+	} else if(R_Speed < 0)
+		Set_Speed_R(R_Speed - 6000);
+
+	if(L_Speed > 0) {
+		Set_Speed_L(L_Speed + 6000);
+	} else if(L_Speed < 0)
+		Set_Speed_L(L_Speed - 6000);
 
 
-	//RAUS WENN FERTIG
-	Drive_Stop();
+	HAL_Delay(5);
+
+
 }
 
 static void Drive_Turn_Right(void)
 {
-	Set_Speed_L(6000);		//10% Speed
+	Set_Speed_L(6000);		//60% Speed
 	Set_Speed_R(-6000);
 }
 
 static void Drive_Turn_Left(void)
 {
-	Set_Speed_L(-6000);		//10% Speed
+	Set_Speed_L(-6000);		//60% Speed
 	Set_Speed_R(6000);
 }
 
