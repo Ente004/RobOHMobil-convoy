@@ -497,7 +497,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOF, L_Forward_Pin|L_Backward_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, R_Backward_Pin|TOF_R_EN_Pin|TOF_L_EN_Pin|RGB_Rot_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, R_Forward_Pin|R_Backward_Pin|TOF_R_EN_Pin|TOF_L_EN_Pin
+                          |RGB_Rot_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, RGB_Blau_Pin|RGB_Gelb_Pin|LD2_Pin, GPIO_PIN_RESET);
@@ -509,17 +510,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : R_Forward_Pin TOF_L_EXTI_3_Pin TOF_R_EXTI7_Pin */
-  GPIO_InitStruct.Pin = R_Forward_Pin|TOF_L_EXTI_3_Pin|TOF_R_EXTI7_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : R_Backward_Pin TOF_R_EN_Pin TOF_L_EN_Pin RGB_Rot_Pin */
-  GPIO_InitStruct.Pin = R_Backward_Pin|TOF_R_EN_Pin|TOF_L_EN_Pin|RGB_Rot_Pin;
+  /*Configure GPIO pins : R_Forward_Pin R_Backward_Pin TOF_R_EN_Pin TOF_L_EN_Pin
+                           RGB_Rot_Pin */
+  GPIO_InitStruct.Pin = R_Forward_Pin|R_Backward_Pin|TOF_R_EN_Pin|TOF_L_EN_Pin
+                          |RGB_Rot_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : TOF_L_EXTI_3_Pin TOF_R_EXTI7_Pin */
+  GPIO_InitStruct.Pin = TOF_L_EXTI_3_Pin|TOF_R_EXTI7_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : IR_Sensor_R_Pin IR_Sensor_L_Pin */
