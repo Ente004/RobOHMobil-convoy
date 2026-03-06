@@ -22,7 +22,20 @@ int motorL_ENB = 26;
 int LEDCH = 2;
 int IR_LED = 12;
 
+// RGB_LED
+int RGB_RED = 4;
+int RGB_BLUE = 0;
+int RGB_GREEN = 2;
+
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+
+
+void RGB_AUS() {
+    digitalWrite(RGB_RED, HIGH);
+    digitalWrite(RGB_BLUE, HIGH);
+    digitalWrite(RGB_GREEN, HIGH);
+}
+
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -41,8 +54,14 @@ void onConnectedController(ControllerPtr ctl) {
             break;
         }
     }
+
+    RGB_AUS();
+
     if (!foundEmptySlot) {
         Serial.println("CALLBACK: Controller connected, but could not found empty slot");
+        digitalWrite(RGB_RED, LOW);
+    } else {
+    digitalWrite(RGB_GREEN, LOW);    
     }
 }
 
@@ -61,6 +80,9 @@ void onDisconnectedController(ControllerPtr ctl) {
     if (!foundController) {
         Serial.println("CALLBACK: Controller disconnected, but not found in myControllers");
     }
+
+    RGB_AUS();
+    digitalWrite(RGB_BLUE, LOW);
 }
 
 void dumpGamepad(ControllerPtr ctl) {
@@ -235,6 +257,8 @@ void processControllers() {
                 driveHandler(myController);
             } else {
                 Serial.println("Unsupported controller");
+                RGB_AUS();
+                digitalWrite(RGB_RED, LOW);
             }
         }
     }
@@ -296,6 +320,20 @@ void setup() {
     ledcAttachPin(IR_LED, LEDCH);
     ledcWrite(LEDCH, 127);
     
+    // setup RGB_LED
+    pinMode(RGB_RED, OUTPUT);
+    pinMode(RGB_BLUE, OUTPUT);
+    pinMode(RGB_GREEN, OUTPUT);
+
+    //RGB_LED ist Low-Aktiv
+    digitalWrite(RGB_RED, HIGH);
+    digitalWrite(RGB_BLUE, HIGH);
+    digitalWrite(RGB_GREEN, HIGH);
+
+
+
+    //Während noch kein Controller Connected ist: LED leuchtet Blau
+    digitalWrite(RGB_BLUE, LOW);    
 }
 
 // Arduino loop function. Runs in CPU 1.
