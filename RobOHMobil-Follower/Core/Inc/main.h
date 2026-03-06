@@ -88,14 +88,14 @@ void Range_Data_Handler_L(int16_t _Range_L);
 #define IR_Sensor_R_GPIO_Port GPIOA
 #define IR_Sensor_L_Pin GPIO_PIN_10
 #define IR_Sensor_L_GPIO_Port GPIOA
-#define RGB_Rot_Pin GPIO_PIN_11
-#define RGB_Rot_GPIO_Port GPIOA
+#define RGB_Red_Pin GPIO_PIN_11
+#define RGB_Red_GPIO_Port GPIOA
 #define R_Speed_Pin GPIO_PIN_3
 #define R_Speed_GPIO_Port GPIOB
-#define RGB_Blau_Pin GPIO_PIN_4
-#define RGB_Blau_GPIO_Port GPIOB
-#define RGB_Gelb_Pin GPIO_PIN_5
-#define RGB_Gelb_GPIO_Port GPIOB
+#define RGB_Blue_Pin GPIO_PIN_4
+#define RGB_Blue_GPIO_Port GPIOB
+#define RGB_Green_Pin GPIO_PIN_5
+#define RGB_Green_GPIO_Port GPIOB
 #define LD2_Pin GPIO_PIN_8
 #define LD2_GPIO_Port GPIOB
 

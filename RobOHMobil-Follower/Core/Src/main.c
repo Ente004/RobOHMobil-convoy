@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -64,15 +64,19 @@ int16_t Range_R;
 int16_t Range_Last_R;
 int16_t Range_L;
 int16_t Range_Last_L;
-int16_t Range_Reference = 75;
+int16_t Range_Reference = 100;
 int16_t R_Speed = 0;
 int16_t L_Speed = 0;
+static int integral = 0;
 
 
 int16_t CalibrateOffset_R;
 int16_t CalibrateOffset_L;
 int16_t CalibratedOffset_R;
 int16_t CalibratedOffset_L;
+
+int Error_Count_L = 0;
+int Error_Count_R = 0;
 
 
 /* USER CODE END PV */
@@ -100,8 +104,10 @@ static void Drive_Turn_Left(void);
 static void Drive_Stop(void);
 static void Set_Speed_L(int speed);
 static void Set_Speed_R(int speed);
+static void Set_RGB(int R, int G, int B);
 
 //CALCULATE
+int calc_speed_to_pwm(int s);
 static int Check_Valid_Range(void);
 
 //TEST
@@ -146,38 +152,55 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
- // NOCH AUS, FALSCHE SPANNUNG!"!!!! HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
-//TBD
+
+
+
   VL53L4CD_Init();
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
+
+  Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	  Read_TOF();
+	  Drive_Follow();
+
+	  if(Check_Valid_Range()) {
+		  Set_RGB(0, 1, 0);
+	  } else {
+		  Set_RGB(1, 0, 0);
+	  }
+
+	  /*
 	  Read_TOF();
 	  L_Speed = 0;
 	  R_Speed = 0;
 	  if (Read_IR_Sensor()) {		// Wenn Beide erkennen, fahren
 
 		  while(Check_Valid_Range()) {
+			  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
  			  Read_TOF();
  		  	  Drive_Follow();
 		  }
 
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
+		  Set_RGB(1, 1, 0); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
 	  } else if (IR_Sensor_R) {		// Rechts drehen
 		  Drive_Turn_Right();
-	  } else {						// Rechts Drehen + Blau blinken -> Suchen
+		  Set_RGB(1, 1, 0); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
+	  } else {						// Rechts Drehen + Blau  -> Suchen
 		  Drive_Turn_Right();
-		  //BLINKEN
+		  Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
 	  }
 
-
+*/
 
 
 
@@ -498,10 +521,10 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, R_Forward_Pin|R_Backward_Pin|TOF_R_EN_Pin|TOF_L_EN_Pin
-                          |RGB_Rot_Pin, GPIO_PIN_RESET);
+                          |RGB_Red_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, RGB_Blau_Pin|RGB_Gelb_Pin|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, RGB_Blue_Pin|RGB_Green_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : L_Forward_Pin L_Backward_Pin */
   GPIO_InitStruct.Pin = L_Forward_Pin|L_Backward_Pin;
@@ -511,9 +534,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : R_Forward_Pin R_Backward_Pin TOF_R_EN_Pin TOF_L_EN_Pin
-                           RGB_Rot_Pin */
+                           RGB_Red_Pin */
   GPIO_InitStruct.Pin = R_Forward_Pin|R_Backward_Pin|TOF_R_EN_Pin|TOF_L_EN_Pin
-                          |RGB_Rot_Pin;
+                          |RGB_Red_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -531,8 +554,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : RGB_Blau_Pin RGB_Gelb_Pin LD2_Pin */
-  GPIO_InitStruct.Pin = RGB_Blau_Pin|RGB_Gelb_Pin|LD2_Pin;
+  /*Configure GPIO pins : RGB_Blue_Pin RGB_Green_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = RGB_Blue_Pin|RGB_Green_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -610,8 +633,8 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -18);		// Wert eingeben je nach Sensor, ist beschriftet
-	VL53L4CD_SetOffset(TOF_L, -16);
+	VL53L4CD_SetOffset(TOF_R, -10);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_L, -20);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
 }
@@ -697,8 +720,14 @@ static void Read_TOF(void)
 		if (VL53L4CD_ClearInterrupt(TOF_R) != 0) {
 			Error_Handler();
 		}
-		Range_R = result_R.distance_mm;
-		//uint8_t statusR = result_R.range_status;
+
+		if(result_R.range_status == 0) {
+			Range_R = result_R.distance_mm;
+			Error_Count_R = 0;
+		} else {
+			Error_Count_R++;
+		}
+
 
 
 
@@ -711,10 +740,20 @@ static void Read_TOF(void)
 			Error_Handler();
 		}
 
-		Range_L = result_L.distance_mm;
-		//uint8_t statusL = result_L.range_status;
+ 	 	if(result_L.range_status == 0) {
+ 	 		Range_L = result_L.distance_mm;
+ 	 		Error_Count_L = 0;
+ 	 	} else {
+ 	 		Error_Count_L++;
+ 	 	}
 
 
+
+ 	 	if((Error_Count_L > 10)||(Error_Count_R > 10)) {
+ 	 		Set_RGB(1, 1, 1);
+ 	 		Drive_Stop();
+ 	 		Error_Handler();
+ 	 	}
 
 
 
@@ -737,21 +776,56 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
+	float Ki = 1.5;
+	float Kt = 2.0;
 
-	//Calculate Speed
-	if((Range_R + 5) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
+
+	int distance = (Range_L + Range_R) / 2;
+	int error = Range_Reference - distance;
+
+	integral += error;
+
+	if(integral > 2000) integral = 2000;
+	if(integral < -2000) integral = -2000;
+
+	int speed = Ki * integral;
+
+	int turn = Kt * (Range_L - Range_R);
+
+	int L_Speed = speed - turn;
+	int R_Speed = speed + turn;
+
+	L_Speed = CLAMP(L_Speed, -4000, 4000);
+	R_Speed = CLAMP(R_Speed, -4000, 4000);
+
+	Set_Speed_L(calc_speed_to_pwm(L_Speed));
+	Set_Speed_R(calc_speed_to_pwm(R_Speed));
+
+
+	/*//Calculate Speed
+	if((Range_R + 15) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
 
 		if(Range_R <= Range_Last_R) {
-			R_Speed -= (Range_Reference - Range_R);
+			R_Speed -= 2;
+					//(Range_Reference - Range_R);
 		}
 
-	} else if((Range_R - 5) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
+	} else if((Range_R - 15) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
 
 		if(Range_R >= Range_Last_R) {
-			R_Speed += (Range_R - Range_Reference);
+			R_Speed += 2;
+			//(Range_R - Range_Reference);
 		}
+	} else {
 
+		if(Range_R < Range_Last_R) {
+			R_Speed -= 1;
+		} else if(Range_R > Range_Last_R) {
+			R_Speed += 1;
+		}
 	}
+
+
 
 	if(R_Speed > 4000) {
 		R_Speed = 4000;
@@ -759,18 +833,27 @@ static void Drive_Follow(void)
 		R_Speed = -4000;
 	}
 
-	if((Range_L + 5) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
+	if((Range_L + 15) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
 
 		if(Range_L <= Range_Last_L) {
-			L_Speed -= (Range_Reference - Range_L);
+			L_Speed -= 2;
+			//(Range_Reference - Range_L);
 		}
 
-	} else if((Range_L - 5) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
+	} else if((Range_L - 15) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
 
 		if(Range_L >= Range_Last_L) {
-			L_Speed += (Range_L - Range_Reference);
+			L_Speed += 2;
+			//(Range_L - Range_Reference);
 		}
 
+	} else {
+
+		if(Range_L < Range_Last_L) {
+			L_Speed -= 1;
+		} else if(Range_L > Range_Last_L) {
+			L_Speed += 1;
+		}
 	}
 
 	if(L_Speed > 4000) {
@@ -779,18 +862,24 @@ static void Drive_Follow(void)
 		L_Speed = -4000;
 	}
 
-	if(R_Speed > 0) {
+	if(R_Speed > 50) {
 		Set_Speed_R(R_Speed + 6000);				//Speed muss Effektiv mind PWM von 60% haben um genug Drehmoment zu haben damit das  Fahrzeug sich bewegt
-	} else if(R_Speed < 0)
+	} else if(R_Speed < -50) {
 		Set_Speed_R(R_Speed - 6000);
+	} else {
+		Set_Speed_R(0);
+	}
 
-	if(L_Speed > 0) {
+
+	if(L_Speed > 50) {
 		Set_Speed_L(L_Speed + 6000);
-	} else if(L_Speed < 0)
+	} else if(L_Speed < -50) {
 		Set_Speed_L(L_Speed - 6000);
+	} else {
+		Set_Speed_L(0);
+	}
 
-
-	HAL_Delay(5);
+	HAL_Delay(25);*/
 
 
 }
@@ -872,18 +961,53 @@ static void Set_Speed_R(int speed)
 		}
 }
 
+static void Set_RGB(int R, int G, int B) {
+
+	// Eingabe 1 um jeweilige LED an zumachen
+	// LEDs sind Low Aktiv -> 1 = Reset = Pin LOW
+
+	if(R >= 1) {
+		HAL_GPIO_WritePin(RGB_Red_GPIO_Port, RGB_Red_Pin, GPIO_PIN_RESET);
+	} else {
+		HAL_GPIO_WritePin(RGB_Red_GPIO_Port, RGB_Red_Pin, GPIO_PIN_SET);
+	}
+
+	if(G >= 1) {
+		HAL_GPIO_WritePin(RGB_Green_GPIO_Port, RGB_Green_Pin, GPIO_PIN_RESET);
+	} else {
+		HAL_GPIO_WritePin(RGB_Green_GPIO_Port, RGB_Green_Pin, GPIO_PIN_SET);
+	}
+
+	if(B >= 1) {
+		HAL_GPIO_WritePin(RGB_Blue_GPIO_Port, RGB_Blue_Pin, GPIO_PIN_RESET);
+	} else {
+		HAL_GPIO_WritePin(RGB_Blue_GPIO_Port, RGB_Blue_Pin, GPIO_PIN_SET);
+	}
+}
+
+
+
 //------------------------------------------------------------------------------------
 //		USER CALCULATE
 //------------------------------------------------------------------------------------
+
+int calc_speed_to_pwm(int s) {
+	if(s > 50)
+		return s + 6000;
+	else if(s < -50)
+		return s - 6000;
+	else
+		return 0;
+}
 
 // Returns 1 when TOF-Ranges are valid ( >0; <1000)
 static int Check_Valid_Range(void)
 {
 	if(
-		Range_R <= 0   ||
-		Range_R > 1000 ||
-		Range_L <= 0   ||
-		Range_L > 1000
+		Range_R <= 5   ||
+		Range_R > 500 ||
+		Range_L <= 5   ||
+		Range_L > 500
 	   )
 	{
 		return 0;
@@ -905,12 +1029,13 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  Drive_Stop();
-  while (1)
-  {
+	Set_RGB(1, 0, 0); 		// Rot => Fehler
+	__disable_irq();
+	Drive_Stop();
+	while (1)
+	{
 
-  }
+	}
   /* USER CODE END Error_Handler_Debug */
 }
 
