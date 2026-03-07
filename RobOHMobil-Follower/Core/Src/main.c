@@ -68,6 +68,8 @@ int16_t Range_Reference = 100;
 int16_t R_Speed = 0;
 int16_t L_Speed = 0;
 static int integral = 0;
+static int IR_lost_counter = 0;
+static int folgen_aktiv = 0;
 
 
 int16_t CalibrateOffset_R;
@@ -77,6 +79,7 @@ int16_t CalibratedOffset_L;
 
 int Error_Count_L = 0;
 int Error_Count_R = 0;
+int TOF_Data_Error = 0;
 
 
 /* USER CODE END PV */
@@ -168,41 +171,47 @@ int main(void)
   while (1)
   {
 
-	  Read_TOF();
-	  Drive_Follow();
 
-	  if(Check_Valid_Range()) {
-		  Set_RGB(0, 1, 0);
-	  } else {
-		  Set_RGB(1, 0, 0);
-	  }
-
-	  /*
 	  Read_TOF();
 	  L_Speed = 0;
 	  R_Speed = 0;
-	  if (Read_IR_Sensor()) {		// Wenn Beide erkennen, fahren
+	  if (Read_IR_Sensor() ) {		// Wenn Beide erkennen, fahren
 
-		  while(Check_Valid_Range()) {
+		  folgen_aktiv = 1;
+
+		  while(folgen_aktiv && !TOF_Data_Error) {
+
 			  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
  			  Read_TOF();
  		  	  Drive_Follow();
+
+ 		  	  if(!IR_Sensor_L && !IR_Sensor_R) {
+ 		  		  IR_lost_counter++;
+ 		  	  } else {
+ 		  		  IR_lost_counter = 0;
+ 		  	  }
+
+
+ 		  	  if(IR_lost_counter > 5)
+ 		  		  folgen_aktiv = 0;
+
+ 		  	  HAL_Delay(20);
 		  }
 
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
-		  Set_RGB(1, 1, 0); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
+		  Set_RGB(1, 1, 1); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
 	  } else if (IR_Sensor_R) {		// Rechts drehen
 		  Drive_Turn_Right();
-		  Set_RGB(1, 1, 0); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
+		  Set_RGB(1, 0, 0); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
 	  } else {						// Rechts Drehen + Blau  -> Suchen
 		  Drive_Turn_Right();
 		  Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
 	  }
 
-*/
 
 
+	  HAL_Delay(20);
 
 
     /* USER CODE END WHILE */
@@ -722,8 +731,15 @@ static void Read_TOF(void)
 		}
 
 		if(result_R.range_status == 0) {
-			Range_R = result_R.distance_mm;
+
+			if (result_R.distance_mm < 1000) {
+
+				// Filtern durch Verringern von Einfluss neuer Messergebnisse
+				Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
+			}
+
 			Error_Count_R = 0;
+			TOF_Data_Error = 0;
 		} else {
 			Error_Count_R++;
 		}
@@ -741,8 +757,15 @@ static void Read_TOF(void)
 		}
 
  	 	if(result_L.range_status == 0) {
- 	 		Range_L = result_L.distance_mm;
+ 	 		if (result_L.distance_mm < 1000) {
+
+
+ 	 			// Filtern durch Verringern von Einfluss neuer Messergebnisse
+ 	 			Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
+
+ 	 		}
  	 		Error_Count_L = 0;
+ 	 		TOF_Data_Error = 0;
  	 	} else {
  	 		Error_Count_L++;
  	 	}
@@ -750,9 +773,9 @@ static void Read_TOF(void)
 
 
  	 	if((Error_Count_L > 10)||(Error_Count_R > 10)) {
- 	 		Set_RGB(1, 1, 1);
+
  	 		Drive_Stop();
- 	 		Error_Handler();
+ 	 		TOF_Data_Error = 1;
  	 	}
 
 
@@ -776,24 +799,54 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
-	float Ki = 1.5;
-	float Kt = 2.0;
+	float Ki = 0.02;
+	float Kp = 2.0;
+	float Kt = 3.0;
 
-
+	int turn = 0;
 	int distance = (Range_L + Range_R) / 2;
-	int error = Range_Reference - distance;
+	int error = distance - Range_Reference;
 
 	integral += error;
 
 	if(integral > 2000) integral = 2000;
 	if(integral < -2000) integral = -2000;
 
-	int speed = Ki * integral;
+	int speed = Kp * error + Ki * integral;
 
-	int turn = Kt * (Range_L - Range_R);
 
-	int L_Speed = speed - turn;
-	int R_Speed = speed + turn;
+
+	// Grobausrichtung durch IR
+	if(IR_Sensor_L && !IR_Sensor_R)			//nur linker
+	    turn = 30;   // stark links
+	else if(IR_Sensor_R && !IR_Sensor_L)	//nur rechter
+	    turn = -30;  // stark rechts
+	else if(IR_Sensor_L && IR_Sensor_R)
+	    turn = 0;    // beide erkennen → geradeaus
+
+	// Feinausrichtung durch ToF
+	turn += (Range_R - Range_L) / 2; // kleine Korrektur
+
+
+	if(abs(turn) < 5)
+		turn = 0;
+
+	if(abs(error) < 20) {
+	    speed = 0;
+		integral = 0;
+	}
+
+	//Richtungskorrektur mithilfe von IR_Sensoren
+	if(!Read_IR_Sensor()) {
+		if(IR_Sensor_L) {
+			turn += 20;
+		} else if(IR_Sensor_R) {
+			turn -= 20;
+		}
+	}
+
+	int L_Speed = speed - Kt * turn;
+	int R_Speed = speed + Kt * turn;
 
 	L_Speed = CLAMP(L_Speed, -4000, 4000);
 	R_Speed = CLAMP(R_Speed, -4000, 4000);
