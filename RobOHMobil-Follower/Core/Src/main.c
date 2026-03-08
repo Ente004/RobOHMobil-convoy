@@ -102,6 +102,7 @@ static int Read_IR_Sensor(void);
 
 //WRITE
 static void Drive_Follow(void);
+static void Drive_Straight(void);
 static void Drive_Turn_Right(void);
 static void Drive_Turn_Left(void);
 static void Drive_Stop(void);
@@ -181,16 +182,24 @@ int main(void)
 
 		  while(folgen_aktiv && !TOF_Data_Error) {
 
-			  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
- 			  Read_TOF();
- 		  	  Drive_Follow();
 
+ 			  Read_TOF();
+ 			  Read_IR_Sensor();
+
+ 			  if (Check_Valid_Range()) {
+ 				  Drive_Follow();
+ 				  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
+ 			  } else {
+ 				  Drive_Straight();
+ 				  Set_RGB(1, 1, 0);			// Gelb => Langsames Ranfahren bis TOF Sensor erkennen
+ 			  }
+
+ 			  // Prüfen ob IR Sensoren sehen, Aber bei Kurzen Interferenzen kein Abbruch
  		  	  if(!IR_Sensor_L && !IR_Sensor_R) {
  		  		  IR_lost_counter++;
  		  	  } else {
  		  		  IR_lost_counter = 0;
  		  	  }
-
 
  		  	  if(IR_lost_counter > 5)
  		  		  folgen_aktiv = 0;
@@ -200,13 +209,13 @@ int main(void)
 
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
-		  Set_RGB(1, 1, 1); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
+		  Set_RGB(0, 1, 1); 		// Cyan für nur Linker erkennt
 	  } else if (IR_Sensor_R) {		// Rechts drehen
 		  Drive_Turn_Right();
-		  Set_RGB(1, 0, 0); 		// Rot + Grün = Gelb => nur ein IR erkennt etwas
+		  Set_RGB(1, 0, 1); 		// Magenta für nur Rechter erkennt
 	  } else {						// Rechts Drehen + Blau  -> Suchen
 		  Drive_Turn_Right();
-		  Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
+		  Set_RGB(0, 0, 1);			// Blaue LED => Sucht nach IR signal
 	  }
 
 
@@ -809,8 +818,8 @@ static void Drive_Follow(void)
 
 	integral += error;
 
-	if(integral > 2000) integral = 2000;
-	if(integral < -2000) integral = -2000;
+	if(integral > 3000) integral = 3000;
+	if(integral < -3000) integral = -3000;
 
 	int speed = Kp * error + Ki * integral;
 
@@ -936,20 +945,29 @@ static void Drive_Follow(void)
 
 
 }
+static void Drive_Straight(void)
+// Langsames Gerade Heranfahren
+{
+	Set_Speed_L(6000);
+	Set_Speed_R(6000);
+}
 
 static void Drive_Turn_Right(void)
+// Langsames Rechts Drehen
 {
 	Set_Speed_L(6000);		//60% Speed
 	Set_Speed_R(-6000);
 }
 
 static void Drive_Turn_Left(void)
+// Langsames Links Drehen
 {
 	Set_Speed_L(-6000);		//60% Speed
 	Set_Speed_R(6000);
 }
 
 static void Drive_Stop(void)
+// Stoppen
 {
 	Set_Speed_L(0);
 	Set_Speed_R(0);
