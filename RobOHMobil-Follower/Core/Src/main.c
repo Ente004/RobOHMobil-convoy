@@ -814,7 +814,7 @@ static void Drive_Follow(void)
 
 	int speed = Kp * error + Ki * integral;
 
-
+	// ZUSATZ ZUFAHREN WENN IR SENSOREN BEIDE ERKENNEN ABER DIE TOF NOCH NICHT
 
 	// Grobausrichtung durch IR
 	if(IR_Sensor_L && !IR_Sensor_R)			//nur linker
