@@ -176,7 +176,7 @@ int main(void)
 	  Read_TOF();
 	  L_Speed = 0;
 	  R_Speed = 0;
-	  if (Read_IR_Sensor() ) {		// Wenn Beide erkennen, fahren
+	  if (Read_IR_Sensor() || folgen_aktiv) {		// Wenn Beide erkennen, fahren
 
 		  folgen_aktiv = 1;
 
@@ -201,10 +201,10 @@ int main(void)
  		  		  IR_lost_counter = 0;
  		  	  }
 
- 		  	  if(IR_lost_counter > 5)
+ 		  	  if(IR_lost_counter > 40)
  		  		  folgen_aktiv = 0;
 
- 		  	  HAL_Delay(20);
+
 		  }
 
 	  } else if (IR_Sensor_L) {		// Links drehen
@@ -220,7 +220,7 @@ int main(void)
 
 
 
-	  HAL_Delay(20);
+	  //HAL_Delay(20);
 
 
     /* USER CODE END WHILE */
@@ -651,8 +651,8 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -10);		// Wert eingeben je nach Sensor, ist beschriftet
-	VL53L4CD_SetOffset(TOF_L, -20);
+	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_L, -18);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
 }
@@ -701,8 +701,16 @@ void VL53L4CD_I2C_Test(void)
 /* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/
 static int Read_IR_Sensor(void)
 {
-	IR_Sensor_R = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R_Pin);
-	IR_Sensor_L = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L_Pin);
+	int Temp_R_1 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R_Pin);
+	int Temp_L_1 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L_Pin);
+
+	HAL_Delay(40);
+
+	int Temp_R_2 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R_Pin);
+	int Temp_L_2 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L_Pin);
+
+	IR_Sensor_R = Temp_R_2 & Temp_R_1;
+	IR_Sensor_L = Temp_L_2 & Temp_L_1;
 
 	if(IR_Sensor_R && IR_Sensor_L) {									//TEST LED für IR-Test
 		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 1);
@@ -783,7 +791,7 @@ static void Read_TOF(void)
 
  	 	if((Error_Count_L > 10)||(Error_Count_R > 10)) {
 
- 	 		Drive_Stop();
+ 	 		//Drive_Stop();
  	 		TOF_Data_Error = 1;
  	 	}
 
@@ -808,8 +816,8 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
-	float Ki = 0.02;
-	float Kp = 2.0;
+	float Ki = 0.25;
+	float Kp = 4.0;
 	float Kt = 3.0;
 
 	int turn = 0;
@@ -818,20 +826,21 @@ static void Drive_Follow(void)
 
 	integral += error;
 
-	if(integral > 3000) integral = 3000;
-	if(integral < -3000) integral = -3000;
+	if(integral > 4000) integral = 4000;
+	if(integral < -4000) integral = -4000;
 
 	int speed = Kp * error + Ki * integral;
 
 	// ZUSATZ ZUFAHREN WENN IR SENSOREN BEIDE ERKENNEN ABER DIE TOF NOCH NICHT
 
 	// Grobausrichtung durch IR
+
 	if(IR_Sensor_L && !IR_Sensor_R)			//nur linker
-	    turn = 30;   // stark links
+		turn = 10;   // stark links
 	else if(IR_Sensor_R && !IR_Sensor_L)	//nur rechter
-	    turn = -30;  // stark rechts
+		turn = -10;  // stark rechts
 	else if(IR_Sensor_L && IR_Sensor_R)
-	    turn = 0;    // beide erkennen → geradeaus
+		turn = 0;    // beide erkennen → geradeaus
 
 	// Feinausrichtung durch ToF
 	turn += (Range_R - Range_L) / 2; // kleine Korrektur
@@ -845,14 +854,6 @@ static void Drive_Follow(void)
 		integral = 0;
 	}
 
-	//Richtungskorrektur mithilfe von IR_Sensoren
-	if(!Read_IR_Sensor()) {
-		if(IR_Sensor_L) {
-			turn += 20;
-		} else if(IR_Sensor_R) {
-			turn -= 20;
-		}
-	}
 
 	int L_Speed = speed - Kt * turn;
 	int R_Speed = speed + Kt * turn;
@@ -863,85 +864,6 @@ static void Drive_Follow(void)
 	Set_Speed_L(calc_speed_to_pwm(L_Speed));
 	Set_Speed_R(calc_speed_to_pwm(R_Speed));
 
-
-	/*//Calculate Speed
-	if((Range_R + 15) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
-
-		if(Range_R <= Range_Last_R) {
-			R_Speed -= 2;
-					//(Range_Reference - Range_R);
-		}
-
-	} else if((Range_R - 15) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
-
-		if(Range_R >= Range_Last_R) {
-			R_Speed += 2;
-			//(Range_R - Range_Reference);
-		}
-	} else {
-
-		if(Range_R < Range_Last_R) {
-			R_Speed -= 1;
-		} else if(Range_R > Range_Last_R) {
-			R_Speed += 1;
-		}
-	}
-
-
-
-	if(R_Speed > 4000) {
-		R_Speed = 4000;
-	} else if(R_Speed < -4000) {
-		R_Speed = -4000;
-	}
-
-	if((Range_L + 15) < Range_Reference) {		//Sind wir unter unserer Referenz abzüglich von Toleranzen
-
-		if(Range_L <= Range_Last_L) {
-			L_Speed -= 2;
-			//(Range_Reference - Range_L);
-		}
-
-	} else if((Range_L - 15) > Range_Reference) {	//Sind wir über unserer Referenz abzüglich von Toleranzen
-
-		if(Range_L >= Range_Last_L) {
-			L_Speed += 2;
-			//(Range_L - Range_Reference);
-		}
-
-	} else {
-
-		if(Range_L < Range_Last_L) {
-			L_Speed -= 1;
-		} else if(Range_L > Range_Last_L) {
-			L_Speed += 1;
-		}
-	}
-
-	if(L_Speed > 4000) {
-		L_Speed = 4000;
-	} else if(L_Speed < -4000) {
-		L_Speed = -4000;
-	}
-
-	if(R_Speed > 50) {
-		Set_Speed_R(R_Speed + 6000);				//Speed muss Effektiv mind PWM von 60% haben um genug Drehmoment zu haben damit das  Fahrzeug sich bewegt
-	} else if(R_Speed < -50) {
-		Set_Speed_R(R_Speed - 6000);
-	} else {
-		Set_Speed_R(0);
-	}
-
-
-	if(L_Speed > 50) {
-		Set_Speed_L(L_Speed + 6000);
-	} else if(L_Speed < -50) {
-		Set_Speed_L(L_Speed - 6000);
-	} else {
-		Set_Speed_L(0);
-	}
-
-	HAL_Delay(25);*/
 
 
 }
