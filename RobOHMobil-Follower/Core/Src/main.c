@@ -77,6 +77,8 @@ int16_t CalibrateOffset_L;
 int16_t CalibratedOffset_R;
 int16_t CalibratedOffset_L;
 
+static int TOF_Data_R_Old = 0;
+static int TOF_Data_L_Old = 0;
 int Error_Count_L = 0;
 int Error_Count_R = 0;
 int TOF_Data_Error = 0;
@@ -164,7 +166,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 
-  Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
+  //Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -174,38 +176,66 @@ int main(void)
 
 
 	  Read_TOF();
-	  L_Speed = 0;
-	  R_Speed = 0;
+
 	  if (Read_IR_Sensor() || folgen_aktiv) {		// Wenn Beide erkennen, fahren
 
-		  folgen_aktiv = 1;
 
-		  while(folgen_aktiv && !TOF_Data_Error) {
+
+		  integral = 0;
+		  L_Speed = 0;
+		  R_Speed = 0;
+		  folgen_aktiv = 1;
+		  Drive_Stop();
+
+
+		  while(folgen_aktiv) {
 
 
  			  Read_TOF();
  			  Read_IR_Sensor();
+ 			  Drive_Follow();
+ 			  if(!IR_Sensor_L && !IR_Sensor_R)
+ 				  IR_lost_counter++;
+ 			  else
+ 				  IR_lost_counter = 0;
+
+ 			  if(IR_lost_counter > 3)
+ 				  folgen_aktiv = 0;
+		  }
+
+
+/*
 
  			  if (Check_Valid_Range()) {
  				  Drive_Follow();
- 				  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
+ 				//  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
+
+
  			  } else {
  				  Drive_Straight();
- 				  Set_RGB(1, 1, 0);			// Gelb => Langsames Ranfahren bis TOF Sensor erkennen
+ 				//  Set_RGB(1, 1, 0);			// Gelb => Langsames Ranfahren bis TOF Sensor erkennen
+
+
  			  }
 
  			  // Prüfen ob IR Sensoren sehen, Aber bei Kurzen Interferenzen kein Abbruch
  		  	  if(!IR_Sensor_L && !IR_Sensor_R) {
- 		  		  IR_lost_counter++;
- 		  	  } else {
- 		  		  IR_lost_counter = 0;
+
+
+ 		  		  folgen_aktiv = 0;
+ 		  		  //IR_lost_counter++;
  		  	  }
 
- 		  	  if(IR_lost_counter > 40)
+ 		  	  else {
+ 		  		  IR_lost_counter = 0;
+
+ 		  	  }
+
+ 		  	  if(IR_lost_counter > 20)
  		  		  folgen_aktiv = 0;
 
+*/
 
-		  }
 
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
@@ -651,8 +681,8 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet
-	VL53L4CD_SetOffset(TOF_L, -18);
+	VL53L4CD_SetOffset(TOF_R, -10);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_L, -20);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
 }
@@ -662,6 +692,7 @@ static void VL53L4CD_Init(void) {
 //------------------------------------------------------------------------------------
 
 void VL53L4CD_I2C_Test(void)
+// Nur für Debug der TOF sensoren benötigt
 {
     uint8_t id = 0;
     HAL_StatusTypeDef ret;
@@ -698,26 +729,46 @@ void VL53L4CD_I2C_Test(void)
 //		USER READ
 //------------------------------------------------------------------------------------
 
-/* Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen	*/
+
 static int Read_IR_Sensor(void)
+// Liest die IR_Sensoren auf Variablen ein,  returned 1 wenn beide etwas erkennen
+// Filtert Kurze Störimpulse Raus,
+
 {
+
 	int Temp_R_1 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R_Pin);
 	int Temp_L_1 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L_Pin);
 
-	HAL_Delay(40);
+	HAL_Delay(30);
 
 	int Temp_R_2 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_R_Pin);
 	int Temp_L_2 = !HAL_GPIO_ReadPin(GPIOA, IR_Sensor_L_Pin);
 
 	IR_Sensor_R = Temp_R_2 & Temp_R_1;
 	IR_Sensor_L = Temp_L_2 & Temp_L_1;
+/*
 
-	if(IR_Sensor_R && IR_Sensor_L) {									//TEST LED für IR-Test
+	//Debug Um Sensoren Farblich einzeln auswerten zu können
+	if (IR_Sensor_R >= 1){
+		HAL_GPIO_WritePin(RGB_Blue_GPIO_Port, RGB_Blue_Pin, GPIO_PIN_RESET);
+	} else {
+		HAL_GPIO_WritePin(RGB_Blue_GPIO_Port, RGB_Blue_Pin, GPIO_PIN_SET);
+	}
+
+	if(IR_Sensor_L >= 1) {
+		HAL_GPIO_WritePin(RGB_Red_GPIO_Port, RGB_Red_Pin, GPIO_PIN_RESET);
+	} else {
+		HAL_GPIO_WritePin(RGB_Red_GPIO_Port, RGB_Red_Pin, GPIO_PIN_SET);
+	}
+*/
+/*
+	//TEST LED für IR-Test
+	if(IR_Sensor_R && IR_Sensor_L) {
 		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 1);
 	} else {
 		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 0);
 	}
-	
+*/
 	return (IR_Sensor_R && IR_Sensor_L);
 }
 
@@ -753,6 +804,9 @@ static void Read_TOF(void)
 
 				// Filtern durch Verringern von Einfluss neuer Messergebnisse
 				Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
+				TOF_Data_R_Old = 0;											// Merker, wenn Daten nicht erneuert werden
+			} else {
+				TOF_Data_R_Old++;
 			}
 
 			Error_Count_R = 0;
@@ -779,8 +833,12 @@ static void Read_TOF(void)
 
  	 			// Filtern durch Verringern von Einfluss neuer Messergebnisse
  	 			Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
-
+ 	 			TOF_Data_L_Old = 0;											// Merker, wenn Daten nicht erneuert werden
+ 	 		} else {
+ 	 			TOF_Data_L_Old++;
  	 		}
+
+
  	 		Error_Count_L = 0;
  	 		TOF_Data_Error = 0;
  	 	} else {
@@ -807,7 +865,6 @@ static void Read_TOF(void)
 
 	}
 
-	HAL_Delay(5);
 }
 
 //------------------------------------------------------------------------------------
@@ -816,43 +873,72 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
-	float Ki = 0.25;
-	float Kp = 4.0;
-	float Kt = 3.0;
+	float Ki = 0.1;
+	float Kp = 3.5;
+	float Kt = 10.0;
 
 	int turn = 0;
-	int distance = (Range_L + Range_R) / 2;
-	int error = distance - Range_Reference;
+	int error = 0;
+	int speed = 0;
 
-	integral += error;
+	if(Check_Valid_Range() && !TOF_Data_Error) {
+		Set_RGB(0, 1, 0);
+		int distance = (Range_L + Range_R) / 2;
 
-	if(integral > 4000) integral = 4000;
-	if(integral < -4000) integral = -4000;
+		error = distance - Range_Reference;
 
-	int speed = Kp * error + Ki * integral;
+		integral += error;
 
+		if(integral > 4000) integral = 4000;
+		if(integral < -4000) integral = -4000;
+
+		speed = Kp * error + Ki * integral;
+
+		// Feinausrichtung durch ToF
+		turn += (Range_R - Range_L) / 2;
+
+		if(abs(error) < 10) {
+			speed = 0;
+			integral = 0;
+		}
+	} else {
+
+		// NOCH ÄNDERN AUF GELB
+		Set_RGB(1, 0, 0);
+
+		if(IR_Sensor_L && IR_Sensor_R) {
+
+			// beide erkennen → geradeaus
+			speed = 500;
+			integral = 0;
+
+		} else if(IR_Sensor_L && !IR_Sensor_R) {	//nur linker
+			turn += 30;   // stark links
+
+		} else if(IR_Sensor_R && !IR_Sensor_L) {	//nur rechter
+			turn += -30;  // stark rechts
+
+		}
+	}
 	// ZUSATZ ZUFAHREN WENN IR SENSOREN BEIDE ERKENNEN ABER DIE TOF NOCH NICHT
 
 	// Grobausrichtung durch IR
+/*
 
-	if(IR_Sensor_L && !IR_Sensor_R)			//nur linker
-		turn = 10;   // stark links
-	else if(IR_Sensor_R && !IR_Sensor_L)	//nur rechter
-		turn = -10;  // stark rechts
-	else if(IR_Sensor_L && IR_Sensor_R)
-		turn = 0;    // beide erkennen → geradeaus
+		if(IR_Sensor_L && !IR_Sensor_R)			//nur linker
+			turn += 20;   // stark links
+		else if(IR_Sensor_R && !IR_Sensor_L)	//nur rechter
+			turn += -20;  // stark rechts
+		else if(IR_Sensor_L && IR_Sensor_R)
+			turn += 0;    // beide erkennen → geradeaus
+*/
 
-	// Feinausrichtung durch ToF
-	turn += (Range_R - Range_L) / 2; // kleine Korrektur
 
 
 	if(abs(turn) < 5)
 		turn = 0;
 
-	if(abs(error) < 20) {
-	    speed = 0;
-		integral = 0;
-	}
+
 
 
 	int L_Speed = speed - Kt * turn;
@@ -867,6 +953,7 @@ static void Drive_Follow(void)
 
 
 }
+
 static void Drive_Straight(void)
 // Langsames Gerade Heranfahren
 {
@@ -985,27 +1072,28 @@ static void Set_RGB(int R, int G, int B) {
 //------------------------------------------------------------------------------------
 
 int calc_speed_to_pwm(int s) {
-	if(s > 50)
+	if(s > 5)
 		return s + 6000;
-	else if(s < -50)
+	else if(s < -5)
 		return s - 6000;
 	else
 		return 0;
 }
 
-// Returns 1 when TOF-Ranges are valid ( >0; <1000)
+// Returns 1 when TOF-Ranges are valid ( >5; <300)
 static int Check_Valid_Range(void)
 {
 	if(
-		Range_R <= 5   ||
-		Range_R > 500 ||
-		Range_L <= 5   ||
-		Range_L > 500
-	   )
-	{
+		   Range_R <= 10
+		|| Range_R > 300
+		|| Range_L <= 10
+		|| Range_L > 300
+		|| TOF_Data_L_Old > 5
+		|| TOF_Data_R_Old > 5
+		|| TOF_Data_Error > 0
+	   ) {
 		return 0;
-	} else
-	{
+	} else {
 		return 1;
 	}
 }
