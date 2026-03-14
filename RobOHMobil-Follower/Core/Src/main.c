@@ -50,7 +50,6 @@ TIM_HandleTypeDef htim3;
 /* USER CODE BEGIN PV */
 int IR_Sensor_R;						// Rechter IR sieht IR-Beacon
 int IR_Sensor_L;						// Linker IR sieht IR-Beacon
-int IR_Last_Dir = 0;					// Gibt den IR sensor an, der zuletzt ein Signal hatte (0 = R; 1 = L;
 
 // TOF Sensor Devices used in Driver Functions
 Dev_t TOF_R   = 0x54;   	// Neue Adresse für R
@@ -71,7 +70,7 @@ int16_t L_Speed = 0;
 static int integral = 0;
 static int IR_lost_counter = 0;
 static int folgen_aktiv = 0;
-static int last_case_green = 0;
+
 
 int16_t CalibrateOffset_R;
 int16_t CalibrateOffset_L;
@@ -83,7 +82,6 @@ static int TOF_Data_L_Old = 0;
 int Error_Count_L = 0;
 int Error_Count_R = 0;
 int TOF_Data_Error = 0;
-int TOF_no_data_received = 0;
 
 
 /* USER CODE END PV */
@@ -191,7 +189,6 @@ int main(void)
 		  Drive_Stop();
 
 
-
 		  while(folgen_aktiv) {
 
 
@@ -244,20 +241,14 @@ int main(void)
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
 		  Set_RGB(0, 1, 1); 		// Cyan für nur Linker erkennt
-
 	  } else if (IR_Sensor_R) {		// Rechts drehen
 		  Drive_Turn_Right();
 		  Set_RGB(1, 0, 1); 		// Magenta für nur Rechter erkennt
-
-	  } else if (IR_Last_Dir){		// Letztes Signal war Gelb
-		  Drive_Turn_Left();
-		  Set_RGB(0, 0, 1);			// Blaue LED => Sucht nach IR signal
-
-	  } else if (!IR_Last_Dir){		// Default => Rechts drehen Oder Letztes Signal war Rechts
+	  } else {						// Rechts Drehen + Blau  -> Suchen
 		  Drive_Turn_Right();
 		  Set_RGB(0, 0, 1);			// Blaue LED => Sucht nach IR signal
 	  }
-	  last_case_green = 0;
+
 
 
 	  //HAL_Delay(20);
@@ -691,8 +682,8 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet
-	VL53L4CD_SetOffset(TOF_L, -18);
+	VL53L4CD_SetOffset(TOF_R, -10);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_L, -20);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
 }
@@ -756,11 +747,6 @@ static int Read_IR_Sensor(void)
 
 	IR_Sensor_R = Temp_R_2 & Temp_R_1;
 	IR_Sensor_L = Temp_L_2 & Temp_L_1;
-
-	if(IR_Sensor_R)
-		IR_Last_Dir = 0;
-	else if (IR_Sensor_L)
-		IR_Last_Dir = 1;
 /*
 
 	//Debug Um Sensoren Farblich einzeln auswerten zu können
@@ -816,9 +802,9 @@ static void Read_TOF(void)
 		if(result_R.range_status == 0) {
 
 			if (result_R.distance_mm < 1000) {
-				Range_R = result_R.distance_mm;
+
 				// Filtern durch Verringern von Einfluss neuer Messergebnisse
-				//Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
+				Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
 				TOF_Data_R_Old = 0;											// Merker, wenn Daten nicht erneuert werden
 			} else {
 				TOF_Data_R_Old++;
@@ -846,9 +832,8 @@ static void Read_TOF(void)
  	 		if (result_L.distance_mm < 1000) {
 
 
- 	 			Range_L = result_L.distance_mm;
  	 			// Filtern durch Verringern von Einfluss neuer Messergebnisse
- 	 			//Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
+ 	 			Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
  	 			TOF_Data_L_Old = 0;											// Merker, wenn Daten nicht erneuert werden
  	 		} else {
  	 			TOF_Data_L_Old++;
@@ -878,10 +863,7 @@ static void Read_TOF(void)
 		if (VL53L4CD_StartRanging(TOF_L) != 0) {
 			Error_Handler();
 		}
-		TOF_no_data_received = 0;
 
-	} else {
-		TOF_no_data_received++;
 	}
 
 }
@@ -892,28 +874,16 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
-	float Ki = 0.2;
+	float Ki = 0.1;
 	float Kp = 3.5;
-	float Kt = 3.0;
+	float Kt = 5.0;
 
 	int turn = 0;
 	int error = 0;
 	int speed = 0;
 
-	if(Check_Valid_Range() && !TOF_Data_Error) {
-		//Green Case: Richtig IR ausgerichtet und TOF signale stimmen
+	if(Check_Valid_Range()) {
 		Set_RGB(0, 1, 0);
-
-		if(!last_case_green) {
-			Drive_Stop();
-			Read_TOF();
-			HAL_Delay(10);
-			Read_TOF();
-			if(!Check_Valid_Range())
-				return;
-		}
-		last_case_green = 1;
-
 		int distance = (Range_L + Range_R) / 2;
 
 		error = distance - Range_Reference;
@@ -925,7 +895,6 @@ static void Drive_Follow(void)
 
 		speed = Kp * error + Ki * integral;
 
-
 		// Feinausrichtung durch ToF
 		turn += (Range_R - Range_L) / 2;
 
@@ -934,20 +903,20 @@ static void Drive_Follow(void)
 
 		turn = CLAMP(turn, -70, 70);
 
+
 		if(abs(error) < 10) {
 			speed = 0;
 			integral = 0;
 		}
 	} else {
 
-
-		Set_RGB(1, 1, 0);
-		last_case_green = 0;
+		// NOCH ÄNDERN AUF GELB
+		Set_RGB(1, 0, 0);
 
 		if(IR_Sensor_L && IR_Sensor_R) {
 
 			// beide erkennen → geradeaus
-			speed = 500;
+			speed = 1000;
 			integral = 0;
 
 		} else if(IR_Sensor_L && !IR_Sensor_R) {	//nur linker
@@ -1130,9 +1099,9 @@ static int Check_Valid_Range(void)
 		|| TOF_Data_R_Old > 5
 		|| TOF_Data_Error > 0
 	   ) {
+		return 0;
 		Range_R = 0;
 		Range_L = 0;
-		return 0;
 	} else {
 		return 1;
 	}
