@@ -659,8 +659,8 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet aus Sensoren und Fahrzeugunterseite
-	VL53L4CD_SetOffset(TOF_L, -18);
+	VL53L4CD_SetOffset(TOF_R, -10);		// Wert eingeben je nach Sensor, ist beschriftet aus Sensoren und Fahrzeugunterseite
+	VL53L4CD_SetOffset(TOF_L, -20);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
 }
