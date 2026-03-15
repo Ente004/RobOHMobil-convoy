@@ -51,38 +51,42 @@ TIM_HandleTypeDef htim3;
 int IR_Sensor_R;						// Rechter IR sieht IR-Beacon
 int IR_Sensor_L;						// Linker IR sieht IR-Beacon
 
-// TOF Sensor Devices used in Driver Functions
+
+
+// TOF Sensor init Variablen
 Dev_t TOF_R   = 0x54;   	// Neue Adresse für R
 Dev_t TOF_L   = 0x58;  		// Neue Adresse für L
-
-VL53L4CD_ResultsData_t result_R;
-VL53L4CD_ResultsData_t result_L;
-
-
-int TOF_R_Valid = 0;
-int TOF_L_Valid = 0;
-int16_t Range_R;
-int16_t Range_Last_R;
-int16_t Range_L;
-int16_t Range_Last_L;
-int16_t Range_Reference = 100;
-int16_t R_Speed = 0;
-int16_t L_Speed = 0;
-static int integral = 0;
-static int IR_lost_counter = 0;
-static int folgen_aktiv = 0;
-
 
 int16_t CalibrateOffset_R;
 int16_t CalibrateOffset_L;
 int16_t CalibratedOffset_R;
 int16_t CalibratedOffset_L;
 
-static int TOF_Data_R_Old = 0;
-static int TOF_Data_L_Old = 0;
-int Error_Count_L = 0;
-int Error_Count_R = 0;
-int TOF_Data_Error = 0;
+
+
+//TOF sensor Daten
+VL53L4CD_ResultsData_t result_R;
+VL53L4CD_ResultsData_t result_L;
+int16_t Range_R;
+int16_t Range_L;
+
+int TOF_R_Valid = 0;
+int TOF_L_Valid = 0;
+int TOF_R_Data_Old = 0;
+int TOF_L_Data_Old = 0;
+int TOF_R_Error_Count = 0;
+int TOF_L_Error_Count = 0;
+
+//Drive Follow Variablen
+int16_t R_Speed = 0;
+int16_t L_Speed = 0;
+int16_t Range_Reference = 100;
+static int integral = 0;
+static int IR_lost_counter = 0;
+static int folgen_aktiv = 0;
+
+
+
 
 
 /* USER CODE END PV */
@@ -105,7 +109,6 @@ static int Read_IR_Sensor(void);
 
 //WRITE
 static void Drive_Follow(void);
-static void Drive_Straight(void);
 static void Drive_Turn_Right(void);
 static void Drive_Turn_Left(void);
 static void Drive_Stop(void);
@@ -167,7 +170,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_2);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_3);
 
-  //Set_RGB(0, 0, 1);		// Blaue LED => Sucht nach IR signal
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -201,58 +204,27 @@ int main(void)
  			  else
  				  IR_lost_counter = 0;
 
- 			  if(IR_lost_counter > 3)
+ 			  if(IR_lost_counter > 3)				//Folgen Aktiv existiert nur um kurze Fehlsignale rauszufiltern
  				  folgen_aktiv = 0;
 		  }
 
 
-/*
-
- 			  if (Check_Valid_Range()) {
- 				  Drive_Follow();
- 				//  Set_RGB(0, 1, 0); 		// Grün => Folgemodus
-
-
- 			  } else {
- 				  Drive_Straight();
- 				//  Set_RGB(1, 1, 0);			// Gelb => Langsames Ranfahren bis TOF Sensor erkennen
-
-
- 			  }
-
- 			  // Prüfen ob IR Sensoren sehen, Aber bei Kurzen Interferenzen kein Abbruch
- 		  	  if(!IR_Sensor_L && !IR_Sensor_R) {
-
-
- 		  		  folgen_aktiv = 0;
- 		  		  //IR_lost_counter++;
- 		  	  }
-
- 		  	  else {
- 		  		  IR_lost_counter = 0;
-
- 		  	  }
-
- 		  	  if(IR_lost_counter > 20)
- 		  		  folgen_aktiv = 0;
-
-*/
-//FARBEN NOCH ÄNDERN
-
-	  } else if (IR_Sensor_L) {		// Links drehen
+	  } else if (IR_Sensor_L) {
+		  // Links drehen
 		  Drive_Turn_Left();
-		  Set_RGB(0, 0, 1); 		// Cyan für nur Linker erkennt
-	  } else if (IR_Sensor_R) {		// Rechts drehen
+		  Set_RGB(0, 1, 1); 		// Cyan für Teil IR erkennung
+	  } else if (IR_Sensor_R) {
+		  // Rechts drehen
 		  Drive_Turn_Right();
-		  Set_RGB(0, 0, 1); 		// Magenta für nur Rechter erkennt
-	  } else {						// Rechts Drehen + Blau  -> Suchen
+		  Set_RGB(0, 1, 1); 		// Cyan für Teil IR erkennung
+	  } else {
+		  // Rechts Drehen + Blau  -> Suchen
 		  Drive_Turn_Right();
 		  Set_RGB(0, 0, 1);			// Blaue LED => Sucht nach IR signal
 	  }
 
 
 
-	  //HAL_Delay(20);
 
 
     /* USER CODE END WHILE */
@@ -630,6 +602,7 @@ static void MX_GPIO_Init(void)
 
 void Custom_GPIO_Init()
 {
+	//Fehlerbehebung
 	GPIOA->MODER &= ~(0x03 << 4); 	//Reset GPIOA_MODE2
 	GPIOA->MODER |= (0x01 << 4); 	//Set GPIOA_MODE2
 	GPIOA->MODER &= ~(0x03 << 8); 	//Reset GPIOA_MODE4
@@ -657,7 +630,6 @@ static void VL53L4CD_Init(void) {
     }
 
 	// INIT TOF_L
-	//HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_RESET);
 	HAL_Delay(10);
 	HAL_GPIO_WritePin(GPIOA, TOF_L_EN_Pin, GPIO_PIN_SET);
 
@@ -675,7 +647,11 @@ static void VL53L4CD_Init(void) {
 
 	HAL_GPIO_WritePin(GPIOA, TOF_R_EN_Pin, GPIO_PIN_SET);
 	HAL_Delay(10);
+
+
 	//Nur bei Anfangs Kalibrierung
+
+	//Wird nur benötigt wenn neue Sensoren angeschlossen werden
 /*
 	VL53L4CD_CalibrateOffset(TOF_R, 100, &CalibrateOffset_R, 20);
 	VL53L4CD_CalibrateOffset(TOF_L, 100, &CalibrateOffset_L, 20);
@@ -683,7 +659,7 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet aus Sensoren und Fahrzeugunterseite
 	VL53L4CD_SetOffset(TOF_L, -18);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
@@ -748,33 +724,16 @@ static int Read_IR_Sensor(void)
 
 	IR_Sensor_R = Temp_R_2 & Temp_R_1;
 	IR_Sensor_L = Temp_L_2 & Temp_L_1;
-/*
 
-	//Debug Um Sensoren Farblich einzeln auswerten zu können
-	if (IR_Sensor_R >= 1){
-		HAL_GPIO_WritePin(RGB_Blue_GPIO_Port, RGB_Blue_Pin, GPIO_PIN_RESET);
-	} else {
-		HAL_GPIO_WritePin(RGB_Blue_GPIO_Port, RGB_Blue_Pin, GPIO_PIN_SET);
-	}
-
-	if(IR_Sensor_L >= 1) {
-		HAL_GPIO_WritePin(RGB_Red_GPIO_Port, RGB_Red_Pin, GPIO_PIN_RESET);
-	} else {
-		HAL_GPIO_WritePin(RGB_Red_GPIO_Port, RGB_Red_Pin, GPIO_PIN_SET);
-	}
-*/
-/*
-	//TEST LED für IR-Test
-	if(IR_Sensor_R && IR_Sensor_L) {
-		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 1);
-	} else {
-		HAL_GPIO_WritePin(GPIOB, LD2_Pin, 0);
-	}
-*/
 	return (IR_Sensor_R && IR_Sensor_L);
 }
 
+
+
 static void Read_TOF(void) 
+// Liest die TOF-Sensor Daten ein (Polling) Immer beide gleichzeitig
+// Filtert dann Ergebnisse Raus (Wenn zu große Distanz oder Fehlercode)
+// Trackt wie viele Zyklen lang die Daten nicht aktualisiert wurden
 {
 	uint8_t dataReady_R = 0;
 	uint8_t dataReady_L = 0;
@@ -789,8 +748,6 @@ static void Read_TOF(void)
 
 	if (dataReady_R && dataReady_L)
 	{
-		Range_Last_R = Range_R;
-		Range_Last_L = Range_L;
 		
 		if (VL53L4CD_GetResult(TOF_R, &result_R) != 0) {
 			Error_Handler();
@@ -809,17 +766,17 @@ static void Read_TOF(void)
 					Range_R = result_R.distance_mm;
 				} else {
 					// Filtern durch Verringern von Einfluss neuer Messergebnisse
-					Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
+					Range_R = (Range_R * 3 + result_R.distance_mm) /4;
 				}
 
-				TOF_Data_R_Old = 0;											// Merker, wenn Daten nicht erneuert werden
+				TOF_R_Data_Old = 0;			// Merker, wenn Daten nicht erneuert werden
 			} else {
-				TOF_Data_R_Old++;
+				TOF_R_Data_Old++;
 			}
 
-			Error_Count_R = 0;
+			TOF_R_Error_Count = 0;
 		} else {
-			Error_Count_R++;
+			TOF_R_Error_Count++;
 		}
 
 
@@ -844,21 +801,21 @@ static void Read_TOF(void)
  	 				Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
  	 			}
 
- 	 			TOF_Data_L_Old = 0;											// Merker, wenn Daten nicht erneuert werden
+ 	 			TOF_L_Data_Old = 0;			// Merker, wenn Daten nicht erneuert werden
  	 		} else {
- 	 			TOF_Data_L_Old++;
+ 	 			TOF_L_Data_Old++;
  	 		}
 
 
- 	 		Error_Count_L = 0;
+ 	 		TOF_L_Error_Count = 0;
  	 	} else {
- 	 		Error_Count_L++;
+ 	 		TOF_L_Error_Count++;
  	 	}
 
 
 
 
-
+ 	 	// Neustart der Auslese anforderung
 		if (VL53L4CD_StartRanging(TOF_R) != 0) {
 			Error_Handler();
 		}
@@ -876,13 +833,16 @@ static void Read_TOF(void)
 //------------------------------------------------------------------------------------
 
 static void Drive_Follow(void)
+// Hauptlogik, wird ausgeführt sobald die IR sensoren das Fahrzeug gefunden haben
+// PI-Regler für die Geschwindigkeit, Turn gibt die Drehung an die das Fahrzeug bei Kurven fährt
+
 {
 	float Ki = 0.2;
 	float Kp = 3.5;
 	float Kt = 5.0;
 
-	int turn = 0;
-	int error = 0;
+	int turn = 0;		//Drehung
+	int error = 0;		//Unterschied zur Soll-Distanz
 	int speed = 0;
 
 
@@ -914,9 +874,10 @@ static void Drive_Follow(void)
 			integral = 0;
 		}
 
-	//Wenn nur der Rechte Sensor ein Ergebnis Liefert, nehmen wir zur Distanz und Speed Berechnung nur den Rechten Sensor und drehen nach Rechts
+
 	} else if(TOF_R_Valid) {
-		Set_RGB(1, 0, 1);
+		//Wenn nur der Rechte Sensor ein Ergebnis Liefert, nehmen wir zur Distanz und Speed Berechnung nur den Rechten Sensor und drehen konstant nach Rechts
+		Set_RGB(1, 1, 0);
 		int distance = Range_R;
 
 				error = distance - Range_Reference;
@@ -930,8 +891,11 @@ static void Drive_Follow(void)
 
 				turn = -30;
 
+
+
 	} else if(TOF_L_Valid){
-		Set_RGB(1, 0, 0);
+		//Wenn nur der Linke Sensor ein Ergebnis Liefert, nehmen wir zur Distanz und Speed Berechnung nur den Linken Sensor und drehen konstant nach Links
+		Set_RGB(1, 1, 0);
 		int distance = Range_L;
 
 				error = distance - Range_Reference;
@@ -946,43 +910,32 @@ static void Drive_Follow(void)
 				turn = 30;
 
 	} else {
-
-		// NOCH ÄNDERN AUF GELB
-		Set_RGB(1, 1, 1);
+		//Drive Follow wird verlassen wenn beide IR-Sensoren 4 Zyklen lang nichts erkennen
+		Set_RGB(1, 1, 0);
 
 		if(IR_Sensor_L && IR_Sensor_R) {
-
 			// beide erkennen → geradeaus
+			// nötig wenn Check_Valid_Distance Fehler gibt, weil die Distanz zu groß ist
+
 			speed = 1000;
 			integral = 0;
 
-		} else if(IR_Sensor_L && !IR_Sensor_R) {	//nur linker
-			turn += 30;   // stark links
 
-		} else if(IR_Sensor_R && !IR_Sensor_L) {	//nur rechter
-			turn += -30;  // stark rechts
+
+		} else if(IR_Sensor_L && !IR_Sensor_R) {
+			// Nachkorrektur wenn kurz nur Linker IR etwas erkennt und TOF nichts erkennt
+			turn += 30;   // leicht links
+
+		} else if(IR_Sensor_R && !IR_Sensor_L) {
+			// Nachkorrektur wenn kurz nur Rechter IR etwas erkennt und TOF nichts erkennt
+			turn += -30;  // leicht rechts
 
 		}
 	}
-	// ZUSATZ ZUFAHREN WENN IR SENSOREN BEIDE ERKENNEN ABER DIE TOF NOCH NICHT
-
-	// Grobausrichtung durch IR
-/*
-
-		if(IR_Sensor_L && !IR_Sensor_R)			//nur linker
-			turn += 20;   // stark links
-		else if(IR_Sensor_R && !IR_Sensor_L)	//nur rechter
-			turn += -20;  // stark rechts
-		else if(IR_Sensor_L && IR_Sensor_R)
-			turn += 0;    // beide erkennen → geradeaus
-*/
 
 
-
-	if(abs(turn) < 5)
+	if(abs(turn) < 5)	//Stabilität, Damit Fahrzeug bei leichten Korrekturen nicht "Zuckt"
 		turn = 0;
-
-
 
 
 	int L_Speed = speed - Kt * turn;
@@ -996,13 +949,6 @@ static void Drive_Follow(void)
 
 
 
-}
-
-static void Drive_Straight(void)
-// Langsames Gerade Heranfahren
-{
-	Set_Speed_L(6000);
-	Set_Speed_R(6000);
 }
 
 static void Drive_Turn_Right(void)
@@ -1027,9 +973,11 @@ static void Drive_Stop(void)
 }
 
 
-// Speed 0 - 10000
-static void Set_Speed_L(int speed)
-{
+
+static void Set_Speed_L(int speed) {
+	// Funktion um Motorsteuerung Leserlicher zu machen
+	// Steuerung der IN-Pins (Forward/Backward) je nach Richtung des Speeds (pos/neg)
+	// Setzen des Speeds in PWM Timer CCR
 	if(speed == 0) {
 
 		HAL_GPIO_WritePin(L_Backward_GPIO_Port, L_Backward_Pin, GPIO_PIN_RESET);
@@ -1057,8 +1005,10 @@ static void Set_Speed_L(int speed)
 }
 
 // Speed 0 - 10000
-static void Set_Speed_R(int speed)
-{
+static void Set_Speed_R(int speed) {
+	// Funktion um Motorsteuerung Leserlicher zu machen
+	// Steuerung der IN-Pins (Forward/Backward) je nach Richtung des Speeds (pos/neg)
+	// Setzen des Speeds in PWM Timer CCR
 	if(speed == 0) {
 
 			HAL_GPIO_WritePin(R_Backward_GPIO_Port, R_Backward_Pin, GPIO_PIN_RESET);
@@ -1086,7 +1036,7 @@ static void Set_Speed_R(int speed)
 }
 
 static void Set_RGB(int R, int G, int B) {
-
+	// Simple LED steuerung, überschreibt immer alle vorherigen LED eingaben automatisch
 	// Eingabe 1 um jeweilige LED an zumachen
 	// LEDs sind Low Aktiv -> 1 = Reset = Pin LOW
 
@@ -1116,6 +1066,10 @@ static void Set_RGB(int R, int G, int B) {
 //------------------------------------------------------------------------------------
 
 int calc_speed_to_pwm(int s) {
+	// Die Motoren / Treiber sind bei niedrigen PWMs (ca. <60%) zu schwach um das Fahrzeug
+	// zu bewegen, deshalb regeln wir immmer zwischen 60% - 100%, um die Berechnung einfach
+	// zu halten Berechnen wir in Drive_Follow nur Speed -4000 bis 4000 und skalieren ihn dann auf
+	// [-10000; -6000] und [6000; 10000]
 	if(s > 5)
 		return s + 6000;
 	else if(s < -5)
@@ -1124,14 +1078,15 @@ int calc_speed_to_pwm(int s) {
 		return 0;
 }
 
-// Returns 1 when TOF-Ranges are valid ( >5; <300)
-static int Check_Valid_Range(void)
-{
+static int Check_Valid_Range(void) {
+	// Prüft aktuelle Distanz angaben und Fehler von Read_TOF
+	// Return 1 nur wenn beide Range Daten stimmen
+	// Schreibt auch auf eigene Variablen welche Daten genau stimmen/nicht stimmen
 	if(
 		   Range_R <= 10
 		|| Range_R > 300
-		|| TOF_Data_R_Old > 2
-		|| Error_Count_R > 2
+		|| TOF_R_Data_Old > 2
+		|| TOF_R_Error_Count > 2
 
 	) {
 		TOF_R_Valid = 0;
@@ -1143,8 +1098,8 @@ static int Check_Valid_Range(void)
 	if(
 		   Range_L <= 10
 		|| Range_L > 300
-		|| TOF_Data_L_Old > 2
-		|| Error_Count_L > 2
+		|| TOF_L_Data_Old > 2
+		|| TOF_L_Error_Count > 2
 	) {
 		TOF_L_Valid = 0;
 		Range_L = 0;
@@ -1153,10 +1108,10 @@ static int Check_Valid_Range(void)
 	}
 
 
-	if(!TOF_R_Valid || !TOF_L_Valid) {
-		return 0;
-	} else {
+	if(TOF_R_Valid && TOF_L_Valid) {
 		return 1;
+	} else {
+		return 0;
 	}
 }
 
