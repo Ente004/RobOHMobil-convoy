@@ -59,7 +59,8 @@ VL53L4CD_ResultsData_t result_R;
 VL53L4CD_ResultsData_t result_L;
 
 
-
+int TOF_R_Valid = 0;
+int TOF_L_Valid = 0;
 int16_t Range_R;
 int16_t Range_Last_R;
 int16_t Range_L;
@@ -236,14 +237,14 @@ int main(void)
  		  		  folgen_aktiv = 0;
 
 */
-
+//FARBEN NOCH ÄNDERN
 
 	  } else if (IR_Sensor_L) {		// Links drehen
 		  Drive_Turn_Left();
-		  Set_RGB(0, 1, 1); 		// Cyan für nur Linker erkennt
+		  Set_RGB(0, 0, 1); 		// Cyan für nur Linker erkennt
 	  } else if (IR_Sensor_R) {		// Rechts drehen
 		  Drive_Turn_Right();
-		  Set_RGB(1, 0, 1); 		// Magenta für nur Rechter erkennt
+		  Set_RGB(0, 0, 1); 		// Magenta für nur Rechter erkennt
 	  } else {						// Rechts Drehen + Blau  -> Suchen
 		  Drive_Turn_Right();
 		  Set_RGB(0, 0, 1);			// Blaue LED => Sucht nach IR signal
@@ -682,8 +683,8 @@ static void VL53L4CD_Init(void) {
 	VL53L4CD_GetOffset(TOF_L, &CalibratedOffset_L);
 */
 
-	VL53L4CD_SetOffset(TOF_R, -10);		// Wert eingeben je nach Sensor, ist beschriftet
-	VL53L4CD_SetOffset(TOF_L, -20);
+	VL53L4CD_SetOffset(TOF_R, -16);		// Wert eingeben je nach Sensor, ist beschriftet
+	VL53L4CD_SetOffset(TOF_L, -18);
 	VL53L4CD_StartRanging(TOF_R);
 	VL53L4CD_StartRanging(TOF_L);
 }
@@ -803,15 +804,20 @@ static void Read_TOF(void)
 
 			if (result_R.distance_mm < 1000) {
 
-				// Filtern durch Verringern von Einfluss neuer Messergebnisse
-				Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
+
+				if(Range_R == 0) {
+					Range_R = result_R.distance_mm;
+				} else {
+					// Filtern durch Verringern von Einfluss neuer Messergebnisse
+					Range_R = (Range_R * 3 + result_R.distance_mm) /4;			// ==> Wenn Messwerte sehr schwanken, verringert das die Schwankungen
+				}
+
 				TOF_Data_R_Old = 0;											// Merker, wenn Daten nicht erneuert werden
 			} else {
 				TOF_Data_R_Old++;
 			}
 
 			Error_Count_R = 0;
-			TOF_Data_Error = 0;
 		} else {
 			Error_Count_R++;
 		}
@@ -831,9 +837,13 @@ static void Read_TOF(void)
  	 	if(result_L.range_status == 0) {
  	 		if (result_L.distance_mm < 1000) {
 
+ 	 			if(Range_L == 0) {
+ 	 				Range_L = result_L.distance_mm;
+ 	 			} else {
+ 	 				// Filtern durch Verringern von Einfluss neuer Messergebnisse
+ 	 				Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
+ 	 			}
 
- 	 			// Filtern durch Verringern von Einfluss neuer Messergebnisse
- 	 			Range_L = (Range_L * 3 + result_L.distance_mm) / 4;
  	 			TOF_Data_L_Old = 0;											// Merker, wenn Daten nicht erneuert werden
  	 		} else {
  	 			TOF_Data_L_Old++;
@@ -841,18 +851,11 @@ static void Read_TOF(void)
 
 
  	 		Error_Count_L = 0;
- 	 		TOF_Data_Error = 0;
  	 	} else {
  	 		Error_Count_L++;
  	 	}
 
 
-
- 	 	if((Error_Count_L > 10)||(Error_Count_R > 10)) {
-
- 	 		//Drive_Stop();
- 	 		TOF_Data_Error = 1;
- 	 	}
 
 
 
@@ -874,7 +877,7 @@ static void Read_TOF(void)
 
 static void Drive_Follow(void)
 {
-	float Ki = 0.1;
+	float Ki = 0.2;
 	float Kp = 3.5;
 	float Kt = 5.0;
 
@@ -882,6 +885,8 @@ static void Drive_Follow(void)
 	int error = 0;
 	int speed = 0;
 
+
+	// Wenn beide TOF sensoren erkenne greift die Reguläre Steuerung
 	if(Check_Valid_Range()) {
 		Set_RGB(0, 1, 0);
 		int distance = (Range_L + Range_R) / 2;
@@ -908,10 +913,42 @@ static void Drive_Follow(void)
 			speed = 0;
 			integral = 0;
 		}
+
+	//Wenn nur der Rechte Sensor ein Ergebnis Liefert, nehmen wir zur Distanz und Speed Berechnung nur den Rechten Sensor und drehen nach Rechts
+	} else if(TOF_R_Valid) {
+		Set_RGB(1, 0, 1);
+		int distance = Range_R;
+
+				error = distance - Range_Reference;
+
+				integral += error;
+
+				if(integral > 4000) integral = 4000;
+				if(integral < -4000) integral = -4000;
+
+				speed = Kp * error + Ki * integral;
+
+				turn = -30;
+
+	} else if(TOF_L_Valid){
+		Set_RGB(1, 0, 0);
+		int distance = Range_L;
+
+				error = distance - Range_Reference;
+
+				integral += error;
+
+				if(integral > 4000) integral = 4000;
+				if(integral < -4000) integral = -4000;
+
+				speed = Kp * error + Ki * integral;
+
+				turn = 30;
+
 	} else {
 
 		// NOCH ÄNDERN AUF GELB
-		Set_RGB(1, 0, 0);
+		Set_RGB(1, 1, 1);
 
 		if(IR_Sensor_L && IR_Sensor_R) {
 
@@ -1093,15 +1130,31 @@ static int Check_Valid_Range(void)
 	if(
 		   Range_R <= 10
 		|| Range_R > 300
-		|| Range_L <= 10
-		|| Range_L > 300
-		|| TOF_Data_L_Old > 5
-		|| TOF_Data_R_Old > 5
-		|| TOF_Data_Error > 0
-	   ) {
-		return 0;
+		|| TOF_Data_R_Old > 2
+		|| Error_Count_R > 2
+
+	) {
+		TOF_R_Valid = 0;
 		Range_R = 0;
+	} else {
+		TOF_R_Valid = 1;
+	}
+
+	if(
+		   Range_L <= 10
+		|| Range_L > 300
+		|| TOF_Data_L_Old > 2
+		|| Error_Count_L > 2
+	) {
+		TOF_L_Valid = 0;
 		Range_L = 0;
+	} else {
+		TOF_L_Valid = 1;
+	}
+
+
+	if(!TOF_R_Valid || !TOF_L_Valid) {
+		return 0;
 	} else {
 		return 1;
 	}
