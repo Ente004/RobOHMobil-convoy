@@ -164,54 +164,47 @@ void processGamepad(ControllerPtr ctl) {
 
 
 void driveHandler(ControllerPtr ctl) {
-    float motor_R_Speed = 0;
-    float motor_L_Speed = 0;
-    float robot_Speed = 0;
-    float tempR = 0;
-    float tempL = 0;
-    float tempGes = 0;
+    float motor_R_Speed = 0.0f;
+    float motor_L_Speed = 0.0f;
+
     int x = ctl->axisX();
     int y = -ctl->axisY();      // Stick nach oben gibt negativen y-wert
 
-    if((x > -80) && (x < 80)) x = 0;     //stickdrift bereinigung
+    if((x > -40) && (x < 40)) x = 0;     //stickdrift bereinigung
     if((y > -40) && (y < 40)) y = 0;
 
     //skalieren
     float fx = float(x) / 500;
     float fy = float(y) / 500;
 
-    if(fx > 1.0f) fx = 1.0f;
-    if(fy > 1.0f) fy = 1.0f;
+    if(fx >  1.0f) fx =  1.0f;
+    if(fx < -1.0f) fx = -1.0f;
+    if(fy >  1.0f) fy =  1.0f;
+    if(fy < -1.0f) fy = -1.0f;
 
-    motor_R_Speed = fy - fx /*  * abs(fy)   */;
-    motor_L_Speed = fy + fx;
+    motor_R_Speed = fy - 0.6f * fx;
+    motor_L_Speed = fy + 0.6f * fx;         
 
+    //Hiermit Definieren wir den Motor mit der Höchsten geschwindigkeit auf max 1.0 und behalten 
+    // die Geschwindigkeit des langsameren im richtigen Verhältnis zum schnelleren
     float maxMag = max(abs(motor_L_Speed), abs(motor_R_Speed));
     if (maxMag > 1.0f) {
         motor_R_Speed /= maxMag;
         motor_L_Speed /= maxMag;
     }
 
-/*
-    robot_Speed = sqrt(y*y + x*x);
-    if(robot_Speed > 500.0) robot_Speed = 500.0;
-    
-    
-    motor_R_Direction = y - x;
-    motor_L_Direction = y + x;
 
-    tempR = y - x;
-    tempL = y + x;
-    tempGes = abs(tempR) + abs(tempL);
-    
-    motor_R_Speed = (abs(tempR)/ tempGes) * robot_Speed;
-    motor_L_Speed = (abs(tempL)/ tempGes) * robot_Speed;
-*/   
+    // Max PWM = 255, erst ab ca. 60% wirksam (schlechter Motortreiber)
+    // Vorderer Roboter soll geringere Max Geschwindigkeit haben als die folgenden
+    // ==> Wir wollen unseren Speed zwischen 60% und 70% haben
 
-    Serial.printf("Motor L: %.4f | Motor R: %.4f\n", motor_L_Speed, motor_R_Speed);
+    // Motor_Speed ist zwischen 0 und 1 
+    // Motor_Speed + 6 => zwischen 6 und 7 => (sollen ca. 60% -> ca. 70%)
+    // 70% von 255 ~= 175
+    // (Motor_Speed + 6) * 25 => 150 - 175 PWM
 
-    ledcWrite(MotorCH_R, ((abs(motor_R_Speed) - 0.3) * 255));
-    ledcWrite(MotorCH_L, ((abs(motor_L_Speed) - 0.3) * 255));
+    ledcWrite(MotorCH_R, ((abs(motor_R_Speed) + 6.0f) * 25));
+    ledcWrite(MotorCH_L, ((abs(motor_L_Speed) + 6.0f) * 25));
 
     //Serial.printf("Berechnet: Speed: %.4f Motor L: %.4f | Motor R: %.4f\n", robot_Speed, ((motor_L_Speed * 255) / 500), ((motor_R_Speed * 255) / 500));
 
