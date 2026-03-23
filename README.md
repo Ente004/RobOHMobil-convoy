@@ -4,5 +4,5 @@ Das ist das Github zum "RobOHMobil-Convoy" Projekt der Technischen Hochschule NÃ
 Teilnehmer:       
 Etienne Bach (Ente004)       
 Valery-Kai Baranov (x9Kiyaai)      
-Samir Bilecki (SamirBilecki)       
+Samir Bilecki (SamirBilecki)       (wird als "Anwender" angezeigt) 
 Kai Hulwa (KaiDerHai2)
